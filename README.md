@@ -10,17 +10,17 @@ SmartFridge is a full-stack application that helps you discover what recipes you
 - Add/remove ingredients with quantities
 - Track what's in your fridge
 - Real-time sync with database
-
+![alt text](pics/v1_my_fridge.png)
 **Recipe Book**
 - Browse recipes by cuisine type
 - Add custom recipes with ingredients and instructions
 - Delete unwanted recipes
-
+![alt text](pics/v1_recipe_book.png)
 **Smart Recipe Generation**
 - Find all cookable recipes based on current fridge contents
 - Uses topological sorting (Kahn's algorithm) for dependency resolution
 - View recipe details and instructions
-
+![alt text](pics/v1_generate_recipe.png)
 **Technical**
 - Local persistence with SQLite
 - Fully offline: runs on your computer only
