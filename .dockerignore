@@ -1,0 +1,25 @@
+# Docker
+.dockerignore
+docker-compose.yml
+
+# Build artifacts
+target/
+*.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Database (for local dev, not in image)
+data/
+*.db
+
+# Local notes
+local_notes/

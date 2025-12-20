@@ -1,5 +1,5 @@
 # SmartFridge
-## SmartFridge v1.0
+## SmartFridge v1.1
 SmartFridge is a full-stack application that helps you discover what recipes you can cook with the ingredients currently in your fridge. It is an engineering implementation of Kahn's algorithm, inspired by LeetCode’s “Find All Possible Recipes from Given Supplies”.
 - Frontend: Streamlit
 - Backend: Spring Boot
@@ -82,6 +82,31 @@ streamlit run app.py
 - Frontend: http://localhost:8501
 - Backend API: http://localhost:8080/api
 
+### Run with Docker
+
+**Prerequisites**
+- Docker Desktop
+
+**Build and Run**
+```bash
+docker-compose build
+docker-compose up -d
+```
+
+**Access**
+- Frontend: http://localhost:8501
+- Backend API: http://localhost:8080/api
+
+**Stop Containers**
+```bash
+docker-compose down
+```
+
+**View Logs**
+```bash
+docker-compose logs -f
+```
+
 ### Project Structure
 ```
 SmartFridge/
@@ -95,7 +120,10 @@ SmartFridge/
 │   ├── api.py         # API client
 │   ├── styles.py      # CSS styles
 │   ├── config.py      # Configuration
-│   └── views/         # Page modules
-└── data/
-    └── smartfridge.db # SQLite database
+│   ├── views/         # Page modules
+│   └── Dockerfile     # Frontend container
+├── data/
+│   └── smartfridge.db # SQLite database
+├── Dockerfile         # Backend container
+└── docker-compose.yml # Multi-container orchestration
 ```
