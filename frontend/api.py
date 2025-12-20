@@ -114,7 +114,7 @@ def fetch_cuisines():
     return []
 
 
-def add_recipe(name, ingredients, cuisine_type, instructions):
+def add_recipe(name, ingredients, cuisine_type, instructions, seasonings=None):
     """Add a new recipe"""
     try:
         data = {
@@ -123,6 +123,8 @@ def add_recipe(name, ingredients, cuisine_type, instructions):
             "cuisineType": cuisine_type,
             "instructions": instructions
         }
+        if seasonings:
+            data["seasonings"] = seasonings
         response = requests.post(f"{API_URL}/recipes", json=data)
         if response.status_code == 200:
             return True

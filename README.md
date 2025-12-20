@@ -1,69 +1,61 @@
 # SmartFridge
-## SmartFridge v1.1
-SmartFridge is a full-stack application that helps you discover what recipes you can cook with the ingredients currently in your fridge. It is an engineering implementation of Kahn's algorithm, inspired by LeetCode’s “Find All Possible Recipes from Given Supplies”.
-- Frontend: Streamlit
-- Backend: Spring Boot
-- Database: SQLite
 
-### Features
-**Fridge Management**
-- Add/remove ingredients with quantities
-- Track what's in your fridge
-- Real-time sync with database
-![alt text](pics/v1_my_fridge.png)
-**Recipe Book**
-- Browse recipes by cuisine type
-- Add custom recipes with ingredients and instructions
-- Delete unwanted recipes
-![alt text](pics/v1_recipe_book.png)
-**Smart Recipe Generation**
-- Find all cookable recipes based on current fridge contents
-- Uses topological sorting (Kahn's algorithm) for dependency resolution
-- View recipe details and instructions
-![alt text](pics/v1_generate_recipe.png)
-**Technical**
-- Local persistence with SQLite
-- Fully offline: runs on your computer only
-- Modular frontend architecture
+A full-stack application that helps you discover what recipes you can cook with the ingredients in your fridge. Uses Kahn's algorithm (topological sorting) for dependency resolution, inspired by LeetCode's "Find All Possible Recipes from Given Supplies".
 
-### Tech Stack
+---
 
-#### Frontend
-- Python 3.10+
-- Streamlit (UI)
-- Modular structure: `views/`, `api.py`, `styles.py`
+## 🚀 What's New
 
-#### Backend
-- Java 17
-- Spring Boot 3.2
-- Spring Web (REST API)
-- Direct SQL via JDBC
+### v2.0 - AI-Powered Recipe Parser
 
-#### Database
-- SQLite (embedded, file-based)
-- File: `data/smartfridge.db`
+![AI Recipe Parser](pics/v2_ai_recipe_parser.png)
+![AI Food Recognition](pics/v2_ai_recipe_food.png)
 
-### API Endpoints
+**New Features:**
+- 🤖 **AI Recipe Parser** - Paste any recipe text, AI extracts ingredients, seasonings, and instructions
+- 🧂 **Ingredient vs Seasoning Separation** - Seasonings don't count towards recipe requirements
+- 📊 **Improved UI** - Better recipe display with separate ingredient/seasoning sections
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/fridge` | Get fridge contents with quantities |
-| POST | `/api/fridge/{item}` | Add item to fridge |
-| PUT | `/api/fridge/{item}` | Update item quantity |
-| DELETE | `/api/fridge/{item}` | Remove item from fridge |
-| GET | `/api/recipes` | Get all recipes by cuisine |
-| GET | `/api/recipes/{name}` | Get recipe details |
-| POST | `/api/recipes` | Add new recipe |
-| DELETE | `/api/recipes/{name}` | Delete recipe |
-| GET | `/api/cuisines` | Get available cuisine types |
-| GET | `/api/generate` | Generate cookable recipes |
+**Technical Improvements:**
+- Ollama integration for local LLM (llama3.2:1b)
+- Database schema: `is_seasoning` column for proper separation
 
-### Run Locally
+---
 
-**Prerequisites**
+### v1 - Full-Stack Foundation
+
+![Fridge Management](pics/v1_my_fridge.png)
+![Recipe Book](pics/v1_recipe_book.png)
+![Generate Recipes](pics/v1_generate_recipe.png)
+
+**Features:**
+- 🥕 **Fridge Management** - Add/remove ingredients with quantities
+- 📖 **Recipe Book** - Browse recipes by cuisine, add custom recipes
+- 🍳 **Smart Recipe Generation** - Find cookable recipes using Kahn's algorithm
+- 💾 **Local Persistence** - SQLite database, fully offline
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Frontend | Python 3.10+, Streamlit |
+| Backend | Java 17, Spring Boot 3.2 |
+| Database | SQLite (embedded) |
+| AI | Ollama (local LLM) |
+
+---
+
+## Quick Start
+
+### Prerequisites
 - Java 17+
 - Maven
 - Python 3.10+
+- Ollama (for AI features)
+
+### Run Locally
 
 **Backend**
 ```bash
@@ -74,7 +66,7 @@ mvn spring-boot:run
 **Frontend**
 ```bash
 cd SmartFridge/frontend
-pip install streamlit requests
+pip install -r requirements.txt
 streamlit run app.py
 ```
 
@@ -83,47 +75,47 @@ streamlit run app.py
 - Backend API: http://localhost:8080/api
 
 ### Run with Docker
-
-**Prerequisites**
-- Docker Desktop
-
-**Build and Run**
 ```bash
 docker-compose build
 docker-compose up -d
 ```
 
-**Access**
-- Frontend: http://localhost:8501
-- Backend API: http://localhost:8080/api
+---
 
-**Stop Containers**
-```bash
-docker-compose down
-```
+## API Endpoints
 
-**View Logs**
-```bash
-docker-compose logs -f
-```
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/fridge` | Get fridge contents |
+| POST | `/api/fridge/{item}` | Add item to fridge |
+| DELETE | `/api/fridge/{item}` | Remove item |
+| GET | `/api/recipes` | Get all recipes by cuisine |
+| POST | `/api/recipes` | Add new recipe (with seasonings) |
+| DELETE | `/api/recipes/{name}` | Delete recipe |
+| GET | `/api/generate` | Generate cookable recipes |
 
-### Project Structure
+---
+
+## Project Structure
 ```
 SmartFridge/
 ├── src/main/java/com/smartfridge/
-│   ├── controller/    # REST endpoints
-│   ├── service/       # Business logic
-│   ├── dao/           # Database access
-│   └── model/         # Data models
+│   ├── controller/         # REST endpoints
+│   ├── service/            # Business logic
+│   ├── dao/                # Database access
+│   │   ├── DatabaseInitializer.java
+│   │   ├── RecipeDao.java
+│   │   └── SupplyDao.java
+│   └── model/              # Data models
 ├── frontend/
-│   ├── app.py         # Main entry point
-│   ├── api.py         # API client
-│   ├── styles.py      # CSS styles
-│   ├── config.py      # Configuration
-│   ├── views/         # Page modules
-│   └── Dockerfile     # Frontend container
-├── data/
-│   └── smartfridge.db # SQLite database
-├── Dockerfile         # Backend container
-└── docker-compose.yml # Multi-container orchestration
+│   ├── app.py              # Main entry
+│   ├── api.py              # API client
+│   ├── ollama_client.py    # AI integration
+│   └── views/              # Page modules
+└── pics/                   # Screenshots
 ```
+
+---
+
+## License
+MIT

@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS food_items (
 CREATE TABLE IF NOT EXISTS recipe_dependencies (
     recipe_name TEXT NOT NULL,
     ingredient_name TEXT NOT NULL,
+    is_seasoning INTEGER DEFAULT 0,  -- 0 = ingredient, 1 = seasoning
     FOREIGN KEY (recipe_name) REFERENCES food_items(name) ON DELETE CASCADE,
     FOREIGN KEY (ingredient_name) REFERENCES food_items(name) ON DELETE CASCADE,
     PRIMARY KEY (recipe_name, ingredient_name)

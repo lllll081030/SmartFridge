@@ -126,7 +126,8 @@ public class RecipeController {
      * Add a new recipe
      * 
      * POST /api/recipes
-     * Request body: { "name": "...", "ingredients": [...], "cuisineType": "...",
+     * Request body: { "name": "...", "ingredients": [...], "seasonings": [...],
+     * "cuisineType": "...",
      * "instructions": "..." }
      */
     @PostMapping("/recipes")
@@ -134,6 +135,8 @@ public class RecipeController {
         String name = (String) request.get("name");
         @SuppressWarnings("unchecked")
         List<String> ingredients = (List<String>) request.get("ingredients");
+        @SuppressWarnings("unchecked")
+        List<String> seasonings = (List<String>) request.get("seasonings");
         String cuisineType = (String) request.get("cuisineType");
         String instructions = (String) request.get("instructions");
         String imageUrl = (String) request.get("imageUrl");
@@ -146,7 +149,14 @@ public class RecipeController {
         }
 
         try {
-            recipeService.addRecipe(name.trim(), ingredients, cuisineType, instructions, imageUrl);
+            if (seasonings != null && !seasonings.isEmpty()) {
+                // Use new method with separate seasonings
+                recipeService.addRecipeWithSeasonings(name.trim(), ingredients, seasonings, cuisineType, instructions,
+                        imageUrl);
+            } else {
+                // Use original method (legacy support)
+                recipeService.addRecipe(name.trim(), ingredients, cuisineType, instructions, imageUrl);
+            }
             return ResponseEntity.ok(Map.of("message", "Recipe added successfully", "name", name));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()

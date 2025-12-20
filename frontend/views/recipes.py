@@ -56,15 +56,28 @@ def _render_browse_tab(recipes_by_cuisine, cuisines):
                 for recipe in recipes:
                     recipe_name = recipe.get('name', 'Unknown')
                     ingredients = recipe.get('ingredients', [])
+                    seasonings = recipe.get('seasonings', [])
+                    
                     is_cookable = recipe_name in st.session_state.cookable_recipes
                     
                     with st.expander(f"{'✅ ' if is_cookable else ''}{recipe_name}", expanded=False):
-                        st.markdown("**Ingredients:**")
-                        ingredient_html = " ".join([
-                            f'<span class="ingredient-chip">{ing}</span>' 
-                            for ing in ingredients
-                        ])
-                        st.markdown(ingredient_html, unsafe_allow_html=True)
+                        # Display main ingredients
+                        if ingredients:
+                            st.markdown("**Ingredients:**")
+                            ingredient_html = " ".join([
+                                f'<span class="ingredient-chip">{ing}</span>' 
+                                for ing in ingredients
+                            ])
+                            st.markdown(ingredient_html, unsafe_allow_html=True)
+                        
+                        # Display seasonings separately
+                        if seasonings:
+                            st.markdown("**Seasonings:**")
+                            seasoning_html = " ".join([
+                                f'<span class="ingredient-chip" style="opacity: 0.7;">{ing}</span>' 
+                                for ing in seasonings
+                            ])
+                            st.markdown(seasoning_html, unsafe_allow_html=True)
                         
                         col_details, col_delete = st.columns([3, 1])
                         with col_details:
@@ -72,7 +85,16 @@ def _render_browse_tab(recipes_by_cuisine, cuisines):
                                 details = fetch_recipe_details(recipe_name)
                                 if details:
                                     st.markdown("---")
-                                    st.markdown(f"**Instructions:** {details.get('instructions', 'No instructions available.')}")
+                                    st.markdown("**Instructions:**")
+                                    # Split instructions by newline and display as numbered list
+                                    instructions_text = details.get('instructions', 'No instructions available.')
+                                    if instructions_text and instructions_text != 'No instructions available.':
+                                        steps = [step.strip() for step in instructions_text.split('\n') if step.strip()]
+                                        for i, step in enumerate(steps, 1):
+                                            st.markdown(f"{i}. {step}")
+                                    else:
+                                        st.markdown(instructions_text)
+                                    
                                     if details.get('imageUrl'):
                                         st.image(details['imageUrl'], caption=recipe_name)
                         with col_delete:
@@ -101,9 +123,17 @@ def _render_add_tab(cuisines):
         
         # Ingredients input
         ingredients_text = st.text_area(
-            "Ingredients (one per line):", 
+            "Main Ingredients (one per line):", 
             placeholder="bread\ncheese\nbutter",
-            height=150
+            height=120
+        )
+        
+        # Seasonings input
+        seasonings_text = st.text_area(
+            "Seasonings (one per line, optional):",
+            placeholder="salt\npepper\noil",
+            height=80,
+            help="Seasonings don't count towards recipe requirements"
         )
         
         # Instructions
@@ -121,11 +151,12 @@ def _render_add_tab(cuisines):
             elif not ingredients_text.strip():
                 st.error("Please enter at least one ingredient.")
             else:
-                # Parse ingredients
+                # Parse ingredients and seasonings
                 ingredients = [ing.strip().lower() for ing in ingredients_text.strip().split('\n') if ing.strip()]
+                seasonings = [s.strip().lower() for s in seasonings_text.strip().split('\n') if s.strip()] if seasonings_text.strip() else []
                 
-                if add_recipe(recipe_name.strip().lower(), ingredients, selected_cuisine, instructions.strip()):
-                    st.success(f"Recipe '{recipe_name}' added successfully!")
+                if add_recipe(recipe_name.strip().lower(), ingredients, selected_cuisine, instructions.strip(), seasonings=seasonings):
+                    st.success(f"Recipe '{recipe_name}' added with {len(ingredients)} ingredients and {len(seasonings)} seasonings!")
                     st.rerun()
                 else:
                     st.error("Failed to add recipe. Please try again.")

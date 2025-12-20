@@ -1,6 +1,7 @@
 package com.smartfridge.service;
 
 import com.smartfridge.dao.RecipeDao;
+import com.smartfridge.dao.SupplyDao;
 import com.smartfridge.model.RecipeDetails;
 import com.smartfridge.model.RecipeSimple;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +14,9 @@ public class RecipeService {
 
     @Autowired
     private RecipeDao recipeDao;
+
+    @Autowired
+    private SupplyDao supplyDao;
 
     /**
      * Find all cookable recipes using Kahn's algorithm (topological sorting)
@@ -52,13 +56,14 @@ public class RecipeService {
     public List<String> findCookableRecipesFromFridge() {
         // Load recipe graph from database
         Map<String, List<String>> recipeToIngredients = recipeDao.loadRecipeGraph();
-        Set<String> fridgeSupplies = recipeDao.getSupplies();
+        Set<String> fridgeSupplies = supplyDao.getSupplies();
 
         if (recipeToIngredients.isEmpty() || fridgeSupplies.isEmpty()) {
             return Collections.emptyList();
         }
 
         // Build ingredient -> recipes graph
+        // Note: loadRecipeGraph() already filters out seasonings (is_seasoning = 0)
         Map<String, List<String>> graph = new HashMap<>();
         Map<String, Integer> inDegree = new HashMap<>();
 
@@ -127,63 +132,63 @@ public class RecipeService {
      * Get current fridge supplies with full details (quantity, sortOrder)
      */
     public List<Map<String, Object>> getFridgeSuppliesWithDetails() {
-        return recipeDao.getSuppliesWithDetails();
+        return supplyDao.getSuppliesWithDetails();
     }
 
     /**
      * Get current fridge supplies with quantities
      */
     public Map<String, Integer> getFridgeSuppliesWithQuantity() {
-        return recipeDao.getSuppliesWithQuantity();
+        return supplyDao.getSuppliesWithQuantity();
     }
 
     /**
      * Get current fridge supplies (names only)
      */
     public Set<String> getFridgeSupplies() {
-        return recipeDao.getSupplies();
+        return supplyDao.getSupplies();
     }
 
     /**
      * Update fridge supplies order
      */
     public void updateFridgeSuppliesOrder(List<String> orderedItems) {
-        recipeDao.updateSuppliesOrder(orderedItems);
+        supplyDao.updateSuppliesOrder(orderedItems);
     }
 
     /**
      * Update fridge supplies (replace all)
      */
     public void updateFridgeSupplies(List<String> supplies) {
-        recipeDao.updateSupplies(supplies);
+        supplyDao.updateSupplies(supplies);
     }
 
     /**
      * Add single item to fridge with quantity
      */
     public void addToFridge(String item, int count) {
-        recipeDao.addSupply(item, count);
+        supplyDao.addSupply(item, count);
     }
 
     /**
      * Add single item to fridge with default quantity
      */
     public void addToFridge(String item) {
-        recipeDao.addSupply(item, 1);
+        supplyDao.addSupply(item, 1);
     }
 
     /**
      * Update item count in fridge
      */
     public void updateFridgeItemCount(String item, int count) {
-        recipeDao.updateSupplyCount(item, count);
+        supplyDao.updateSupplyCount(item, count);
     }
 
     /**
      * Remove single item from fridge
      */
     public void removeFromFridge(String item) {
-        recipeDao.removeSupply(item);
+        supplyDao.removeSupply(item);
     }
 
     /**
@@ -192,6 +197,14 @@ public class RecipeService {
     public void addRecipe(String name, List<String> ingredients, String cuisineType, String instructions,
             String imageUrl) {
         recipeDao.saveRecipeWithDetails(name, ingredients, cuisineType, instructions, imageUrl);
+    }
+
+    /**
+     * Add a new recipe with separate ingredients and seasonings
+     */
+    public void addRecipeWithSeasonings(String name, List<String> ingredients, List<String> seasonings,
+            String cuisineType, String instructions, String imageUrl) {
+        recipeDao.saveRecipeWithSeparateSeasonings(name, ingredients, seasonings, cuisineType, instructions, imageUrl);
     }
 
     /**

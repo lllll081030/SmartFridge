@@ -22,9 +22,7 @@ def render():
                     st.toast(f"'{new_item}' already in fridge! Added {item_count} more.")
                 elif result == "added":
                     st.toast(f"Added '{new_item}' (x{item_count}) to fridge!")
-                # Clear input fields by setting empty values
-                st.session_state.add_item_input = ""
-                st.session_state.add_item_count = 1
+                # Rerun to refresh - can't clear input due to Streamlit limitation
                 st.rerun()
             else:
                 st.warning("Please enter an ingredient name.")

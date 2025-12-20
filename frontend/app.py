@@ -9,7 +9,7 @@ import streamlit as st
 # Import modules
 from styles import apply_styles
 from api import fetch_fridge, sync_pending_counts
-from views import fridge, recipes, generate
+from views import fridge, recipes, generate, recipe_parser
 
 # Page config
 st.set_page_config(
@@ -56,6 +56,10 @@ if st.sidebar.button("📖 Recipe Book", use_container_width=True, type="primary
     st.session_state.current_page = 'recipes'
     st.rerun()
 
+if st.sidebar.button("🤖 AI Recipe Parser", use_container_width=True, type="primary" if st.session_state.current_page == 'parser' else "secondary"):
+    st.session_state.current_page = 'parser'
+    st.rerun()
+
 if st.sidebar.button("🍳 Generate Recipes", use_container_width=True, type="primary" if st.session_state.current_page == 'generate' else "secondary"):
     st.session_state.current_page = 'generate'
     st.rerun()
@@ -65,5 +69,7 @@ if st.session_state.current_page == 'fridge':
     fridge.render()
 elif st.session_state.current_page == 'recipes':
     recipes.render()
+elif st.session_state.current_page == 'parser':
+    recipe_parser.render()
 elif st.session_state.current_page == 'generate':
     generate.render()
