@@ -6,6 +6,8 @@ import com.smartfridge.model.RecipeRequest;
 import com.smartfridge.model.RecipeResponse;
 import com.smartfridge.model.RecipeSimple;
 import com.smartfridge.service.RecipeService;
+import com.smartfridge.service.IngredientResolver;
+import com.smartfridge.service.VectorSearchService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,6 +24,12 @@ public class RecipeController {
 
     @Autowired
     private RecipeService recipeService;
+
+    @Autowired
+    private IngredientResolver ingredientResolver;
+
+    @Autowired
+    private VectorSearchService vectorSearchService;
 
     /**
      * Generate cookable recipes from fridge supplies
@@ -82,6 +90,61 @@ public class RecipeController {
             }
         }
         return null;
+    }
+
+    /**
+     * Semantic search for recipes
+     * 
+     * GET /api/recipes/search?query=...&limit=10
+     */
+    @GetMapping("/recipes/search")
+    public ResponseEntity<?> searchRecipes(
+            @RequestParam String query,
+            @RequestParam(defaultValue = "10") int limit) {
+
+        if (query == null || query.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Query is required"));
+        }
+
+        if (!vectorSearchService.isAvailable()) {
+            return ResponseEntity.ok(Map.of(
+                    "results", List.of(),
+                    "warning", "Semantic search is not available. Make sure Qdrant and Ollama are running."));
+        }
+
+        List<VectorSearchService.SearchResult> results = vectorSearchService.searchSimilar(query.trim(), limit);
+        return ResponseEntity.ok(Map.of("results", results));
+    }
+
+    /**
+     * Hybrid search combining exact ingredient matching and semantic search
+     * 
+     * POST /api/recipes/hybrid-search
+     * Request body: { "ingredients": [...], "query": "...", "limit": 10 }
+     */
+    @PostMapping("/recipes/hybrid-search")
+    public ResponseEntity<?> hybridSearch(@RequestBody Map<String, Object> request) {
+        @SuppressWarnings("unchecked")
+        List<String> ingredients = (List<String>) request.get("ingredients");
+        String query = (String) request.get("query");
+        Integer limit = (Integer) request.getOrDefault("limit", 10);
+
+        if ((ingredients == null || ingredients.isEmpty()) && (query == null || query.trim().isEmpty())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Either ingredients or query is required"));
+        }
+
+        if (!vectorSearchService.isAvailable()) {
+            // Fall back to exact matching only
+            List<String> cookable = recipeService.findCookableRecipesFromFridge();
+            return ResponseEntity.ok(Map.of(
+                    "results",
+                    cookable.stream().map(name -> Map.of("recipeName", name, "matchType", "exact"))
+                            .collect(Collectors.toList()),
+                    "warning", "Semantic search unavailable, showing exact matches only"));
+        }
+
+        List<VectorSearchService.SearchResult> results = vectorSearchService.hybridSearch(ingredients, query, limit);
+        return ResponseEntity.ok(Map.of("results", results));
     }
 
     /**
@@ -157,6 +220,14 @@ public class RecipeController {
                 // Use original method (legacy support)
                 recipeService.addRecipe(name.trim(), ingredients, cuisineType, instructions, imageUrl);
             }
+
+            // Index the new recipe for semantic search (async, non-blocking)
+            try {
+                vectorSearchService.indexRecipe(name.trim());
+            } catch (Exception e) {
+                System.err.println("Warning: Failed to index recipe for semantic search: " + e.getMessage());
+            }
+
             return ResponseEntity.ok(Map.of("message", "Recipe added successfully", "name", name));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
@@ -177,6 +248,14 @@ public class RecipeController {
 
         try {
             recipeService.deleteRecipe(name.trim());
+
+            // Remove from vector index
+            try {
+                vectorSearchService.deleteRecipe(name.trim());
+            } catch (Exception e) {
+                System.err.println("Warning: Failed to remove recipe from search index: " + e.getMessage());
+            }
+
             return ResponseEntity.ok(Map.of("message", "Recipe deleted successfully", "name", name));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
@@ -196,6 +275,8 @@ public class RecipeController {
                 .collect(Collectors.toList());
         return ResponseEntity.ok(cuisines);
     }
+
+    // ==================== Fridge Endpoints ====================
 
     /**
      * Get current fridge supplies with quantities and sort order
@@ -290,5 +371,133 @@ public class RecipeController {
         }
         recipeService.removeFromFridge(item.trim());
         return ResponseEntity.ok(Map.of("message", "Removed " + item + " from fridge"));
+    }
+
+    // ==================== Ingredient Alias Endpoints ====================
+
+    /**
+     * Get aliases for an ingredient
+     * 
+     * GET /api/ingredients/{name}/aliases
+     */
+    @GetMapping("/ingredients/{name}/aliases")
+    public ResponseEntity<?> getIngredientAliases(@PathVariable String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Ingredient name is required"));
+        }
+
+        List<String> aliases = ingredientResolver.getAliases(name.trim());
+        String canonical = ingredientResolver.resolve(name.trim());
+
+        return ResponseEntity.ok(Map.of(
+                "ingredient", name,
+                "canonical", canonical,
+                "aliases", aliases));
+    }
+
+    /**
+     * Add an alias for an ingredient
+     * 
+     * POST /api/ingredients/{canonical}/aliases
+     * Request body: { "alias": "..." }
+     */
+    @PostMapping("/ingredients/{canonical}/aliases")
+    public ResponseEntity<?> addIngredientAlias(
+            @PathVariable String canonical,
+            @RequestBody Map<String, String> request) {
+
+        String alias = request.get("alias");
+        if (canonical == null || canonical.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Canonical name is required"));
+        }
+        if (alias == null || alias.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Alias is required"));
+        }
+
+        ingredientResolver.addAlias(canonical.trim(), alias.trim());
+        return ResponseEntity.ok(Map.of(
+                "message", "Alias added successfully",
+                "canonical", canonical,
+                "alias", alias));
+    }
+
+    /**
+     * Generate AI-powered aliases for an ingredient
+     * 
+     * POST /api/ingredients/{name}/generate-aliases
+     */
+    @PostMapping("/ingredients/{name}/generate-aliases")
+    public ResponseEntity<?> generateIngredientAliases(@PathVariable String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Ingredient name is required"));
+        }
+
+        List<String> generatedAliases = ingredientResolver.generateAliasesWithAI(name.trim());
+
+        return ResponseEntity.ok(Map.of(
+                "ingredient", name,
+                "generated", generatedAliases,
+                "count", generatedAliases.size()));
+    }
+
+    /**
+     * Resolve an ingredient to its canonical form
+     * 
+     * GET /api/ingredients/{name}/resolve
+     */
+    @GetMapping("/ingredients/{name}/resolve")
+    public ResponseEntity<?> resolveIngredient(@PathVariable String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Ingredient name is required"));
+        }
+
+        String canonical = ingredientResolver.resolve(name.trim());
+        boolean isResolved = !canonical.equals(name.trim());
+
+        return ResponseEntity.ok(Map.of(
+                "original", name,
+                "canonical", canonical,
+                "resolved", isResolved));
+    }
+
+    /**
+     * Seed common ingredient aliases
+     * 
+     * POST /api/ingredients/seed-aliases
+     */
+    @PostMapping("/ingredients/seed-aliases")
+    public ResponseEntity<?> seedIngredientAliases() {
+        ingredientResolver.seedCommonAliases();
+        return ResponseEntity.ok(Map.of("message", "Seeded common ingredient aliases"));
+    }
+
+    // ==================== Vector Search Admin Endpoints ====================
+
+    /**
+     * Index all recipes for semantic search
+     * 
+     * POST /api/search/index-all
+     */
+    @PostMapping("/search/index-all")
+    public ResponseEntity<?> indexAllRecipes() {
+        if (!vectorSearchService.isAvailable()) {
+            return ResponseEntity.ok(Map.of(
+                    "error", "Vector search is not available. Make sure Qdrant and Ollama are running."));
+        }
+
+        int count = vectorSearchService.indexAllRecipes();
+        return ResponseEntity.ok(Map.of(
+                "message", "Indexed recipes for semantic search",
+                "count", count));
+    }
+
+    /**
+     * Get vector search statistics
+     * 
+     * GET /api/search/stats
+     */
+    @GetMapping("/search/stats")
+    public ResponseEntity<?> getSearchStats() {
+        return ResponseEntity.ok(vectorSearchService.getStats());
     }
 }

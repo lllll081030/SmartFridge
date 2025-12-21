@@ -36,7 +36,10 @@ class OllamaClient:
         payload = {
             "model": self.model,
             "prompt": prompt,
-            "stream": False
+            "stream": False,
+            "options": {
+                "num_predict": 2048  # Increase max output tokens for longer recipes
+            }
         }
         
         if format_json:
@@ -73,27 +76,34 @@ class OllamaClient:
         Returns:
             Dictionary with parsed recipe data or None if parsing failed
         """
-        prompt = f"""Parse this recipe into JSON format:
+        prompt = f"""You are a recipe ingredient extractor. Parse the recipe below and extract ALL ingredients.
 
+RECIPE TEXT:
+\"\"\"
+{recipe_text}
+\"\"\"
+
+Return this JSON:
 {{
-  "name": "recipe title",
-  "cuisine": "Italian/Chinese/American/etc",
+  "name": "<actual recipe name from text>",
+  "cuisine": "<Chinese/Italian/American/Japanese/Korean/French/Mexican/Indian/OTHER>",
   "ingredients": [
-    {{"name": "ingredient name only", "quantity": "1", "isSeasoning": false}},
+    {{"name": "milk", "quantity": "1", "isSeasoning": false}},
+    {{"name": "egg", "quantity": "1", "isSeasoning": false}},
     {{"name": "salt", "quantity": "1", "isSeasoning": true}}
   ],
   "instructions": ["step 1", "step 2"]
 }}
 
 RULES:
-- "name" field: ONLY the ingredient name, NO amounts or units
-- "quantity": Use "1" for everything (we don't track amounts)
-- "isSeasoning": true for salt/pepper/oil/spices/sauces, false for meat/vegetables/grains
+1. List EVERY ingredient mentioned in the recipe - do not skip any!
+2. "name" = ingredient name ONLY (no amounts like "500g" or "2 cups")
+3. "quantity" = always "1"
+4. isSeasoning = true for: salt, pepper, oil, spices, sauces, sugar, honey, vinegar
+5. isSeasoning = false for: meat, vegetables, flour, eggs, milk, butter, fruits
+6. Extract the REAL recipe name, not a placeholder
 
-Recipe:
-{recipe_text}
-
-Return only valid JSON, nothing else."""
+Return ONLY valid JSON."""
 
         print(f"[DEBUG] Sending recipe to Ollama...")
         response = self.generate(prompt, format_json=True)
@@ -128,7 +138,10 @@ Return only valid JSON, nothing else."""
                     # Now clean each ingredient
                     cleaned = []
                     for ing in flat_ingredients:
-                        if not isinstance(ing, dict):
+                        # Handle plain string ingredients (LLM sometimes returns ["ingredient1", "ingredient2"])
+                        if isinstance(ing, str):
+                            ing = {"name": ing, "quantity": "1", "isSeasoning": False}
+                        elif not isinstance(ing, dict):
                             continue
                         
                         # 1. Clean ingredient name - remove quantities/units

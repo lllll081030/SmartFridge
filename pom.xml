@@ -50,6 +50,10 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!-- Qdrant Vector Database Client -->
+        <!-- Using REST API via RestTemplate instead of gRPC client -->
+        <!-- This avoids complex protobuf dependency issues -->
     </dependencies>
 
     <build>

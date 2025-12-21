@@ -166,3 +166,113 @@ def fetch_recipe_details(recipe_name):
     except requests.exceptions.ConnectionError:
         pass
     return None
+
+
+# ==================== Semantic Search Functions ====================
+
+def search_recipes_semantic(query, limit=10):
+    """Search recipes using semantic similarity"""
+    try:
+        response = requests.get(f"{API_URL}/recipes/search", params={"query": query, "limit": limit})
+        if response.status_code == 200:
+            data = response.json()
+            return data.get('results', []), data.get('warning')
+    except requests.exceptions.ConnectionError:
+        pass
+    return [], "Could not connect to backend"
+
+
+def hybrid_search_recipes(ingredients=None, query=None, limit=10):
+    """Search recipes using hybrid (exact + semantic) matching"""
+    try:
+        data = {"limit": limit}
+        if ingredients:
+            data["ingredients"] = ingredients
+        if query:
+            data["query"] = query
+        response = requests.post(f"{API_URL}/recipes/hybrid-search", json=data)
+        if response.status_code == 200:
+            result = response.json()
+            return result.get('results', []), result.get('warning')
+    except requests.exceptions.ConnectionError:
+        pass
+    return [], "Could not connect to backend"
+
+
+def index_all_recipes():
+    """Index all recipes for semantic search"""
+    try:
+        response = requests.post(f"{API_URL}/search/index-all")
+        if response.status_code == 200:
+            return response.json()
+    except requests.exceptions.ConnectionError:
+        pass
+    return {"error": "Could not connect to backend"}
+
+
+def get_search_stats():
+    """Get vector search statistics"""
+    try:
+        response = requests.get(f"{API_URL}/search/stats")
+        if response.status_code == 200:
+            return response.json()
+    except requests.exceptions.ConnectionError:
+        pass
+    return {"initialized": False, "error": "Could not connect to backend"}
+
+
+# ==================== Ingredient Alias Functions ====================
+
+def get_ingredient_aliases(ingredient_name):
+    """Get aliases for an ingredient"""
+    try:
+        response = requests.get(f"{API_URL}/ingredients/{ingredient_name}/aliases")
+        if response.status_code == 200:
+            return response.json()
+    except requests.exceptions.ConnectionError:
+        pass
+    return {"aliases": [], "canonical": ingredient_name}
+
+
+def resolve_ingredient(ingredient_name):
+    """Resolve an ingredient to its canonical form"""
+    try:
+        response = requests.get(f"{API_URL}/ingredients/{ingredient_name}/resolve")
+        if response.status_code == 200:
+            return response.json()
+    except requests.exceptions.ConnectionError:
+        pass
+    return {"original": ingredient_name, "canonical": ingredient_name, "resolved": False}
+
+
+def generate_ingredient_aliases(ingredient_name):
+    """Generate AI-powered aliases for an ingredient"""
+    try:
+        response = requests.post(f"{API_URL}/ingredients/{ingredient_name}/generate-aliases")
+        if response.status_code == 200:
+            return response.json()
+    except requests.exceptions.ConnectionError:
+        pass
+    return {"generated": [], "count": 0}
+
+
+def add_ingredient_alias(canonical, alias):
+    """Add an alias for an ingredient"""
+    try:
+        response = requests.post(f"{API_URL}/ingredients/{canonical}/aliases", json={"alias": alias})
+        if response.status_code == 200:
+            return True
+    except requests.exceptions.ConnectionError:
+        pass
+    return False
+
+
+def seed_ingredient_aliases():
+    """Seed common ingredient aliases"""
+    try:
+        response = requests.post(f"{API_URL}/ingredients/seed-aliases")
+        if response.status_code == 200:
+            return response.json()
+    except requests.exceptions.ConnectionError:
+        pass
+    return {"error": "Could not connect to backend"}

@@ -18,6 +18,9 @@ public class RecipeService {
     @Autowired
     private SupplyDao supplyDao;
 
+    @Autowired
+    private IngredientResolver ingredientResolver;
+
     /**
      * Find all cookable recipes using Kahn's algorithm (topological sorting)
      */
@@ -51,7 +54,8 @@ public class RecipeService {
     }
 
     /**
-     * Find cookable recipes from stored fridge supplies and database recipes
+     * Find cookable recipes from stored fridge supplies and database recipes.
+     * Uses ingredient alias resolution for flexible matching.
      */
     public List<String> findCookableRecipesFromFridge() {
         // Load recipe graph from database
@@ -62,8 +66,14 @@ public class RecipeService {
             return Collections.emptyList();
         }
 
+        // Resolve fridge supplies to canonical names for flexible matching
+        Set<String> resolvedSupplies = ingredientResolver.resolveToSet(fridgeSupplies);
+
+        // Also add original names to catch direct matches
+        resolvedSupplies.addAll(fridgeSupplies);
+
         // Build ingredient -> recipes graph
-        // Note: loadRecipeGraph() already filters out seasonings (is_seasoning = 0)
+        // Resolve recipe ingredients to canonical names as well
         Map<String, List<String>> graph = new HashMap<>();
         Map<String, Integer> inDegree = new HashMap<>();
 
@@ -72,12 +82,17 @@ public class RecipeService {
             List<String> ingredients = entry.getValue();
 
             for (String ingredient : ingredients) {
-                graph.computeIfAbsent(ingredient, k -> new ArrayList<>()).add(recipeName);
+                // Resolve ingredient to canonical form
+                String resolvedIngredient = ingredientResolver.resolve(ingredient);
+                graph.computeIfAbsent(resolvedIngredient, k -> new ArrayList<>()).add(recipeName);
                 inDegree.merge(recipeName, 1, Integer::sum);
             }
         }
 
-        return kahnAlgorithm(graph, inDegree, new ArrayList<>(fridgeSupplies));
+        // Convert resolved supplies to list for algorithm
+        List<String> suppliesList = new ArrayList<>(resolvedSupplies);
+
+        return kahnAlgorithm(graph, inDegree, suppliesList);
     }
 
     /**

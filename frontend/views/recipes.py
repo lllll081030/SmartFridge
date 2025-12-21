@@ -28,14 +28,21 @@ def render():
             st.session_state.selected_cuisine = cuisine_name
             st.rerun()
     
+    # Initialize edit state
+    if 'editing_recipe' not in st.session_state:
+        st.session_state.editing_recipe = None
+    
     # Main content with tabs
-    tab1, tab2 = st.tabs(["📖 Browse Recipes", "➕ Add New Recipe"])
-    
-    with tab1:
-        _render_browse_tab(recipes_by_cuisine, cuisines)
-    
-    with tab2:
-        _render_add_tab(cuisines)
+    if st.session_state.editing_recipe:
+        _render_edit_mode(cuisines)
+    else:
+        tab1, tab2 = st.tabs(["📖 Browse Recipes", "➕ Add New Recipe"])
+        
+        with tab1:
+            _render_browse_tab(recipes_by_cuisine, cuisines)
+        
+        with tab2:
+            _render_add_tab(cuisines)
 
 
 def _render_browse_tab(recipes_by_cuisine, cuisines):
@@ -79,7 +86,7 @@ def _render_browse_tab(recipes_by_cuisine, cuisines):
                             ])
                             st.markdown(seasoning_html, unsafe_allow_html=True)
                         
-                        col_details, col_delete = st.columns([3, 1])
+                        col_details, col_edit, col_delete = st.columns([2, 1, 1])
                         with col_details:
                             if st.button(f"View Details", key=f"details_{cuisine}_{recipe_name}"):
                                 details = fetch_recipe_details(recipe_name)
@@ -97,6 +104,10 @@ def _render_browse_tab(recipes_by_cuisine, cuisines):
                                     
                                     if details.get('imageUrl'):
                                         st.image(details['imageUrl'], caption=recipe_name)
+                        with col_edit:
+                            if st.button("✏️ Edit", key=f"edit_{cuisine}_{recipe_name}", type="secondary"):
+                                st.session_state.editing_recipe = recipe_name
+                                st.rerun()
                         with col_delete:
                             if st.button("🗑️ Delete", key=f"delete_{cuisine}_{recipe_name}", type="secondary"):
                                 if delete_recipe(recipe_name):
@@ -106,6 +117,92 @@ def _render_browse_tab(recipes_by_cuisine, cuisines):
                                     st.error("Failed to delete recipe.")
     else:
         st.info("No recipes available. Add some recipes using the 'Add New Recipe' tab!")
+
+
+def _render_edit_mode(cuisines):
+    """Render the Edit Recipe mode"""
+    recipe_name = st.session_state.editing_recipe
+    
+    st.markdown(f'<p class="section-header">✏️ Edit Recipe: {recipe_name}</p>', unsafe_allow_html=True)
+    
+    # Fetch current recipe details
+    details = fetch_recipe_details(recipe_name)
+    
+    if not details:
+        st.error(f"Could not load recipe '{recipe_name}'")
+        if st.button("← Back to Recipes"):
+            st.session_state.editing_recipe = None
+            st.rerun()
+        return
+    
+    # Cancel button at top
+    if st.button("← Cancel and go back", key="cancel_edit"):
+        st.session_state.editing_recipe = None
+        st.rerun()
+    
+    st.markdown("---")
+    
+    with st.form("edit_recipe_form"):
+        # Recipe name (display only - changing would create a new recipe)
+        st.text_input("Recipe Name:", value=recipe_name, disabled=True, help="Recipe name cannot be changed")
+        
+        # Cuisine selection
+        cuisine_options = [c.get('name', '') for c in cuisines] if cuisines else ['OTHER']
+        current_cuisine = details.get('cuisineType')
+        if current_cuisine and hasattr(current_cuisine, 'name'):
+            current_cuisine = current_cuisine.name
+        current_index = cuisine_options.index(current_cuisine) if current_cuisine in cuisine_options else 0
+        selected_cuisine = st.selectbox("Cuisine Type:", cuisine_options, index=current_index)
+        
+        # Current ingredients
+        current_ingredients = details.get('ingredients', [])
+        ingredients_text = st.text_area(
+            "Main Ingredients (one per line):", 
+            value='\n'.join(current_ingredients),
+            height=120
+        )
+        
+        # Current seasonings (need to fetch from API, using empty for now)
+        seasonings_text = st.text_area(
+            "Seasonings (one per line, optional):",
+            value='',
+            height=80,
+            help="Seasonings don't count towards recipe requirements"
+        )
+        
+        # Instructions
+        current_instructions = details.get('instructions', '')
+        instructions = st.text_area(
+            "Instructions:", 
+            value=current_instructions,
+            height=150
+        )
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            submitted = st.form_submit_button("💾 Save Changes", type="primary", use_container_width=True)
+        with col2:
+            cancelled = st.form_submit_button("Cancel", use_container_width=True)
+        
+        if cancelled:
+            st.session_state.editing_recipe = None
+            st.rerun()
+        
+        if submitted:
+            # Parse ingredients and seasonings
+            ingredients = [ing.strip().lower() for ing in ingredients_text.strip().split('\n') if ing.strip()]
+            seasonings = [s.strip().lower() for s in seasonings_text.strip().split('\n') if s.strip()] if seasonings_text.strip() else []
+            
+            if not ingredients:
+                st.error("Please enter at least one ingredient.")
+            else:
+                # Use add_recipe which does INSERT OR REPLACE (effectively update)
+                if add_recipe(recipe_name, ingredients, selected_cuisine, instructions.strip(), seasonings=seasonings):
+                    st.success(f"Recipe '{recipe_name}' updated successfully!")
+                    st.session_state.editing_recipe = None
+                    st.rerun()
+                else:
+                    st.error("Failed to update recipe. Please try again.")
 
 
 def _render_add_tab(cuisines):
@@ -160,3 +257,4 @@ def _render_add_tab(cuisines):
                     st.rerun()
                 else:
                     st.error("Failed to add recipe. Please try again.")
+
