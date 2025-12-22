@@ -4,6 +4,10 @@ A full-stack application that helps you discover what recipes you can cook with 
 
 ---
 
+![alt text](image.png)
+
+![alt text](image.png)
+
 ## 🚀 What's New
 
 ### v2.0 - AI-Powered Recipe Parser

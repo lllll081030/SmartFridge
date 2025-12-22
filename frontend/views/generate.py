@@ -7,7 +7,9 @@ from api import (
     hybrid_search_recipes,
     index_all_recipes,
     seed_ingredient_aliases,
-    get_search_stats
+    get_search_stats,
+    get_almost_cookable_recipes,
+    get_substitution_suggestions
 )
 
 
@@ -74,12 +76,106 @@ def _render_exact_match_tab():
             st.warning("Your fridge is empty! Go to the Fridge page to add ingredients.")
     
     with col2:
-        st.markdown("### Cookable Recipes")
+        st.markdown("### ✅ Cookable Now")
         if st.session_state.cookable_recipes:
             st.markdown(f"**You can make {len(st.session_state.cookable_recipes)} recipe(s):**")
             _display_recipe_list(st.session_state.cookable_recipes)
         else:
             st.info("Click 'Find Cookable Recipes' to see what you can make!")
+        
+        st.divider()
+        
+        # Almost cookable recipes section - NOW WITH BUTTON
+        st.markdown("### 🟡 Almost Cookable")
+        st.caption("Recipes you're just 1-2 ingredients away from cooking!")
+        
+        # Button to find almost-cookable recipes
+        if st.button("🔍 Find Almost-Cookable Recipes", key="almost_cookable_btn", use_container_width=True):
+            with st.spinner("Finding recipes close to cookable..."):
+                almost_cookable_data = get_almost_cookable_recipes(max_missing=2)
+                st.session_state.almost_cookable_recipes = almost_cookable_data.get('recipes', {})
+            st.rerun()
+        
+        # Display results if available
+        if 'almost_cookable_recipes' in st.session_state and st.session_state.almost_cookable_recipes:
+            almost_cookable = st.session_state.almost_cookable_recipes
+            st.markdown(f"**{len(almost_cookable)} recipe(s) close to cookable:**")
+            _display_almost_cookable_recipes(almost_cookable)
+        elif 'almost_cookable_recipes' in st.session_state:
+            # Button was clicked but no results
+            st.info("💡 No almost-cookable recipes found. All recipes either need too many ingredients or are already cookable!")
+
+
+def _display_almost_cookable_recipes(almost_cookable):
+    """Display almost cookable recipes with substitution suggestions"""
+    for recipe_name, missing_ingredients in almost_cookable.items():
+        with st.container():
+            # Recipe name with missing count badge
+            missing_count = len(missing_ingredients)
+            st.markdown(
+                f'<div style="background: #FFF9C4; padding: 12px; border-radius: 8px; margin-bottom: 8px;">'
+                f'<strong style="font-size: 1.1em;">{recipe_name}</strong> '
+                f'<span style="background: #FF9800; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.85em;">'
+                f'Missing: {missing_count}</span>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+            
+            # Expandable section for missing ingredients and substitutions
+            with st.expander(f"🔍 View missing ingredients & find substitutes"):
+                st.markdown("**Missing ingredients:**")
+                for ing in missing_ingredients:
+                    st.markdown(f"- ❌ {ing}")
+                
+                # Button to get AI substitution suggestions
+                if st.button(f"✨ Get AI Substitutes", key=f"sub_btn_{recipe_name}"):
+                    with st.spinner("Asking AI for suggestions..."):
+                        sub_data = get_substitution_suggestions(recipe_name)
+                        
+                        if sub_data and sub_data.get('substitutions'):
+                            substitutions = sub_data['substitutions']
+                            
+                            st.success("✅ AI found substitution suggestions!")
+                            
+                            for missing_ing, suggestions in substitutions.items():
+                                if suggestions:
+                                    st.markdown(f"**Substitutes for '{missing_ing}':**")
+                                    
+                                    for idx, suggestion in enumerate(suggestions, 1):
+                                        # DEBUG: Print what we're receiving
+                                        print(f"[FRONTEND DEBUG] Suggestion {idx}: {suggestion}")
+                                        
+                                        substitute = suggestion.get('ingredient', 'Unknown')
+                                        confidence = suggestion.get('confidence', 0.0)
+                                        in_fridge = suggestion.get('inFridge', False)
+                                        reasoning = suggestion.get('reasoning', '')
+                                        
+                                        # Confidence bar color
+                                        if confidence >= 0.8:
+                                            conf_color = "#4CAF50"  # Green
+                                        elif confidence >= 0.6:
+                                            conf_color = "#FF9800"  # Orange
+                                        else:
+                                            conf_color = "#F44336"  # Red
+                                        
+                                        # In fridge badge
+                                        fridge_badge = "✓ In your fridge!" if in_fridge else ""
+                                        fridge_style = "background: #4CAF50; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; margin-left: 8px;" if in_fridge else ""
+                                        
+                                        st.markdown(
+                                            f'<div style="background: #F5F5F5; padding: 10px; border-radius: 6px; margin-bottom: 8px;">'
+                                            f'<strong>{idx}. {substitute}</strong> '
+                                            f'<span style="{fridge_style}">{fridge_badge}</span><br>'
+                                            f'<div style="background: {conf_color}; height: 4px; width: {confidence*100}%; border-radius: 2px; margin: 4px 0;"></div>'
+                                            f'<small style="color: #666;">Confidence: {confidence:.0%}</small><br>'
+                                            f'<small style="color: #444;">{reasoning}</small>'
+                                            f'</div>',
+                                            unsafe_allow_html=True
+                                        )
+                                else:
+                                    st.info(f"No substitutes found for '{missing_ing}'")
+                        else:
+                            st.warning("⚠️ Could not get AI suggestions. Make sure the AI service is running on port 5001.")
 
 
 def _render_semantic_search_tab():

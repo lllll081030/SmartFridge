@@ -1,12 +1,15 @@
 package com.smartfridge.controller;
 
 import com.smartfridge.model.CuisineType;
+import com.smartfridge.model.MissingIngredientsResponse;
 import com.smartfridge.model.RecipeDetails;
 import com.smartfridge.model.RecipeRequest;
 import com.smartfridge.model.RecipeResponse;
 import com.smartfridge.model.RecipeSimple;
+import com.smartfridge.model.SubstitutionSuggestion;
 import com.smartfridge.service.RecipeService;
 import com.smartfridge.service.IngredientResolver;
+import com.smartfridge.service.IngredientSubstitutionService;
 import com.smartfridge.service.VectorSearchService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +33,9 @@ public class RecipeController {
 
     @Autowired
     private VectorSearchService vectorSearchService;
+
+    @Autowired
+    private IngredientSubstitutionService substitutionService;
 
     /**
      * Generate cookable recipes from fridge supplies
@@ -499,5 +505,75 @@ public class RecipeController {
     @GetMapping("/search/stats")
     public ResponseEntity<?> getSearchStats() {
         return ResponseEntity.ok(vectorSearchService.getStats());
+    }
+
+    // ==================== Substitution Endpoints ====================
+
+    /**
+     * Get missing ingredients for a recipe
+     * 
+     * GET /api/recipes/{name}/missing
+     */
+    @GetMapping("/recipes/{name}/missing")
+    public ResponseEntity<?> getMissingIngredients(@PathVariable String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Recipe name is required"));
+        }
+
+        try {
+            MissingIngredientsResponse response = substitutionService.findMissingIngredients(name.trim());
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to analyze recipe: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get AI substitution suggestions for missing ingredients in a recipe
+     * 
+     * GET /api/recipes/{name}/substitutions
+     */
+    @GetMapping("/recipes/{name}/substitutions")
+    public ResponseEntity<?> getSubstitutionSuggestions(@PathVariable String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Recipe name is required"));
+        }
+
+        try {
+            Map<String, List<SubstitutionSuggestion>> substitutions = substitutionService
+                    .getSubstitutions(name.trim());
+            return ResponseEntity.ok(Map.of(
+                    "recipeName", name,
+                    "substitutions", substitutions));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to get substitutions: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get recipes that are almost cookable (missing only a few ingredients)
+     * 
+     * GET /api/recipes/almost-cookable?maxMissing=2
+     */
+    @GetMapping("/recipes/almost-cookable")
+    public ResponseEntity<?> getAlmostCookableRecipes(
+            @RequestParam(defaultValue = "2") int maxMissing) {
+
+        if (maxMissing < 1 || maxMissing > 5) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "maxMissing must be between 1 and 5"));
+        }
+
+        Map<String, List<String>> almostCookable = recipeService.findAlmostCookableRecipes(maxMissing);
+        return ResponseEntity.ok(Map.of(
+                "recipes", almostCookable,
+                "count", almostCookable.size(),
+                "maxMissing", maxMissing));
     }
 }

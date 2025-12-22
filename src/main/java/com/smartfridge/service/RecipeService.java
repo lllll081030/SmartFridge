@@ -228,4 +228,59 @@ public class RecipeService {
     public void deleteRecipe(String name) {
         recipeDao.deleteRecipe(name);
     }
+
+    /**
+     * Find recipes that are almost cookable (missing only a few ingredients)
+     * 
+     * @param maxMissing Maximum number of missing ingredients (default: 2)
+     * @return Map with recipe names as keys and list of missing ingredients as
+     *         values
+     */
+    public Map<String, List<String>> findAlmostCookableRecipes(int maxMissing) {
+        Map<String, List<String>> recipeToIngredients = recipeDao.loadRecipeGraph();
+        Set<String> fridgeSupplies = supplyDao.getSupplies();
+
+        if (recipeToIngredients.isEmpty() || fridgeSupplies.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        // FIRST: Find what's already cookable using Kahn's algorithm
+        List<String> alreadyCookable = findCookableRecipesFromFridge();
+        Set<String> cookableSet = new HashSet<>(alreadyCookable);
+
+        System.out.println("[DEBUG] Already cookable recipes (excluding from almost-cookable): " + cookableSet);
+
+        // Resolve fridge supplies to canonical names
+        Set<String> resolvedSupplies = ingredientResolver.resolveToSet(fridgeSupplies);
+        resolvedSupplies.addAll(fridgeSupplies);
+
+        Map<String, List<String>> almostCookable = new LinkedHashMap<>();
+
+        for (Map.Entry<String, List<String>> entry : recipeToIngredients.entrySet()) {
+            String recipeName = entry.getKey();
+            List<String> ingredients = entry.getValue();
+
+            // SKIP if already cookable!
+            if (cookableSet.contains(recipeName)) {
+                System.out.println("[DEBUG] Skipping '" + recipeName + "' - already cookable");
+                continue;
+            }
+
+            List<String> missingIngredients = new ArrayList<>();
+            for (String ingredient : ingredients) {
+                String resolvedIngredient = ingredientResolver.resolve(ingredient);
+                if (!resolvedSupplies.contains(ingredient) && !resolvedSupplies.contains(resolvedIngredient)) {
+                    missingIngredients.add(ingredient);
+                }
+            }
+
+            // If missing ingredients is between 1 and maxMissing, it's almost cookable
+            if (missingIngredients.size() > 0 && missingIngredients.size() <= maxMissing) {
+                System.out.println("[DEBUG] '" + recipeName + "' is almost cookable, missing: " + missingIngredients);
+                almostCookable.put(recipeName, missingIngredients);
+            }
+        }
+
+        return almostCookable;
+    }
 }

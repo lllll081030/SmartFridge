@@ -253,7 +253,13 @@ public class VectorSearchService {
 
                         // Double-check threshold (some Qdrant versions ignore score_threshold)
                         if (score >= MIN_SCORE_THRESHOLD) {
-                            results.add(new SearchResult(recipeName, score, cuisineType));
+                            // NEW: Keyword filtering - ensure recipe contains important keywords from query
+                            if (containsImportantKeywords(recipeName, query)) {
+                                results.add(new SearchResult(recipeName, score, cuisineType));
+                            } else {
+                                System.out.println("[FILTER] Skipping '" + recipeName + "' - no keyword match for '"
+                                        + query + "'");
+                            }
                         }
                     }
                 }
@@ -263,6 +269,49 @@ public class VectorSearchService {
         }
 
         return results;
+    }
+
+    /**
+     * Check if recipe name contains important keywords from the query.
+     * Filters out keywords that are too short or too common.
+     */
+    private boolean containsImportantKeywords(String recipeName, String query) {
+        if (query == null || query.isEmpty()) {
+            return true; // No filtering if no query
+        }
+
+        String recipeNameLower = recipeName.toLowerCase();
+        String queryLower = query.toLowerCase();
+
+        // Common words to ignore (stop words)
+        Set<String> stopWords = Set.of(
+                "with", "and", "the", "for", "recipe", "dish", "food",
+                "make", "cook", "how", "to", "is", "in", "on", "at");
+
+        // Extract important keywords (length > 3, not stop words)
+        String[] keywords = queryLower.split("\\s+");
+        List<String> importantKeywords = new ArrayList<>();
+
+        for (String keyword : keywords) {
+            keyword = keyword.replaceAll("[^a-z]", ""); // Remove punctuation
+            if (keyword.length() > 3 && !stopWords.contains(keyword)) {
+                importantKeywords.add(keyword);
+            }
+        }
+
+        // If no important keywords, allow all results
+        if (importantKeywords.isEmpty()) {
+            return true;
+        }
+
+        // Check if recipe name contains at least one important keyword
+        for (String keyword : importantKeywords) {
+            if (recipeNameLower.contains(keyword)) {
+                return true;
+            }
+        }
+
+        return false; // No keywords matched
     }
 
     /**

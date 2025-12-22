@@ -1,7 +1,10 @@
 """AI Recipe Parser page module"""
 import streamlit as st
-from ollama_client import ollama
+import requests
 from api import add_recipe
+
+# AI service URL
+AI_SERVICE_URL = "http://localhost:5001"
 
 
 def render():
@@ -13,13 +16,20 @@ def render():
     Perfect for quickly adding recipes to your collection.
     """)
     
-    # Check if Ollama is available
-    if not ollama.is_available():
+    # Check if AI service is available
+    ai_available = check_ai_service()
+    
+    if not ai_available:
         st.error("""
-        ⚠️ **Ollama is not running or not installed**
+        ⚠️ **AI Service is not running**
         
-        Please make sure Ollama is installed and running. 
-        The llama3.2 model should be downloaded.
+        Please start the AI service first:
+        ```bash
+        cd e:\\SmartFridge\\frontend
+        python ai_service.py
+        ```
+        
+        The AI service must be running on port 5001.
         """)
         return
     
@@ -72,7 +82,8 @@ Instructions:
                 import time
                 start_time = time.time()
                 
-                parsed = ollama.parse_recipe(recipe_text)
+                # Call Flask AI service instead of Ollama directly
+                parsed = parse_recipe_via_ai_service(recipe_text)
                 
                 elapsed = time.time() - start_time
                 
@@ -82,7 +93,7 @@ Instructions:
                     st.rerun()
                 else:
                     st.error(f"❌ Failed to parse recipe after {elapsed:.1f} seconds. Please try again.")
-                    st.info("💡 If this keeps failing, try:\n- Restarting Ollama\n- Using a simpler recipe format\n- Checking the terminal for error details")
+                    st.info("💡 If this keeps failing, try:\n- Restarting the AI service\n- Using a simpler recipe format\n- Checking the AI service terminal for error details")
     
     with tab2:
         st.markdown("""
@@ -113,6 +124,46 @@ Instructions:
     if 'parsed_recipe' in st.session_state and st.session_state.parsed_recipe:
         st.markdown("---")
         display_parsed_recipe()
+
+
+def check_ai_service():
+    """Check if AI service is available"""
+    try:
+        response = requests.get(f"{AI_SERVICE_URL}/health", timeout=2)
+        return response.status_code == 200
+    except:
+        return False
+
+
+def parse_recipe_via_ai_service(recipe_text):
+    """Call Flask AI service to parse recipe"""
+    try:
+        response = requests.post(
+            f"{AI_SERVICE_URL}/ai/parse-recipe",
+            json={"recipeText": recipe_text},
+            timeout=180  # 3 minutes for first run
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("success"):
+                return data.get("recipe")
+        
+        # Log error if available
+        if response.status_code != 200:
+            print(f"[ERROR] AI service returned status {response.status_code}")
+            try:
+                error_data = response.json()
+                print(f"[ERROR] {error_data.get('error', 'Unknown error')}")
+            except:
+                pass
+        
+    except requests.Timeout:
+        print("[ERROR] AI service request timed out")
+    except Exception as e:
+        print(f"[ERROR] Failed to call AI service: {e}")
+    
+    return None
 
 
 def display_parsed_recipe():

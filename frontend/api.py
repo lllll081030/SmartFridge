@@ -276,3 +276,43 @@ def seed_ingredient_aliases():
     except requests.exceptions.ConnectionError:
         pass
     return {"error": "Could not connect to backend"}
+
+
+# ==================== Substitution Functions ====================
+
+def get_missing_ingredients(recipe_name):
+    """Get missing ingredients for a recipe"""
+    try:
+        response = requests.get(f"{API_URL}/recipes/{recipe_name}/missing")
+        if response.status_code == 200:
+            return response.json()
+        elif response.status_code == 404:
+            return None
+    except requests.exceptions.ConnectionError:
+        pass
+    return None
+
+
+def get_substitution_suggestions(recipe_name):
+    """Get AI-powered substitution suggestions for missing ingredients"""
+    try:
+        response = requests.get(f"{API_URL}/recipes/{recipe_name}/substitutions")
+        if response.status_code == 200:
+            return response.json()
+        elif response.status_code == 404:
+            return None
+    except requests.exceptions.ConnectionError:
+        pass
+    return None
+
+
+def get_almost_cookable_recipes(max_missing=2):
+    """Get recipes that are almost cookable (missing only a few ingredients)"""
+    try:
+        response = requests.get(f"{API_URL}/recipes/almost-cookable", params={"maxMissing": max_missing})
+        if response.status_code == 200:
+            return response.json()
+    except requests.exceptions.ConnectionError:
+        pass
+    return {"recipes": {}, "count": 0, "maxMissing": max_missing}
+

@@ -89,6 +89,37 @@ public class RecipeDao {
         return null;
     }
 
+    /**
+     * Get only non-seasoning ingredients for a recipe
+     */
+    public List<String> getNonSeasoningIngredients(String recipeName) {
+        String sql = """
+                SELECT ingredient_name
+                FROM recipe_dependencies
+                WHERE recipe_name = ? AND is_seasoning = 0
+                ORDER BY ingredient_name
+                """;
+
+        List<String> ingredients = new ArrayList<>();
+        try (Connection conn = dataSource.getConnection();
+                PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, recipeName);
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    String ingredient = rs.getString("ingredient_name");
+                    if (ingredient != null) {
+                        ingredients.add(ingredient);
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to get non-seasoning ingredients for: " + recipeName, e);
+        }
+        return ingredients;
+    }
+
     private CuisineType parseCuisineType(String cuisineTypeStr) {
         if (cuisineTypeStr == null || cuisineTypeStr.isEmpty()) {
             return CuisineType.OTHER;
