@@ -15,7 +15,7 @@ jobs:
   # Backend Build & Test (Java/Spring Boot)
   # ============================================
   backend:
-    name: 🔧 Backend Build
+    name: Backend Build
     runs-on: ubuntu-latest
     
     steps:
@@ -49,7 +49,7 @@ jobs:
   # Frontend Lint & Validation (Python)
   # ============================================
   frontend:
-    name: 🎨 Frontend Check
+    name: Frontend Check
     runs-on: ubuntu-latest
     
     steps:
@@ -79,7 +79,7 @@ jobs:
   # Docker Build (Multi-container)
   # ============================================
   docker:
-    name: 🐳 Docker Build
+    name: Docker Build
     runs-on: ubuntu-latest
     needs: [backend, frontend]
     
@@ -112,7 +112,7 @@ jobs:
   # Integration Test (Docker Compose)
   # ============================================
   integration:
-    name: 🧪 Integration Test
+    name: Integration Test
     runs-on: ubuntu-latest
     needs: docker
     
