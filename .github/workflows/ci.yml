@@ -1,0 +1,142 @@
+name: SmartFridge CI/CD
+
+on:
+  push:
+    branches: [main, v2.*]
+  pull_request:
+    branches: [main]
+
+env:
+  JAVA_VERSION: '17'
+  PYTHON_VERSION: '3.10'
+
+jobs:
+  # ============================================
+  # Backend Build & Test (Java/Spring Boot)
+  # ============================================
+  backend:
+    name: 🔧 Backend Build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+      
+      - name: Build with Maven
+        run: mvn clean compile -q
+      
+      - name: Run tests
+        run: mvn test -q
+      
+      - name: Package JAR
+        run: mvn package -DskipTests -q
+      
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jar
+          path: target/*.jar
+          retention-days: 7
+
+  # ============================================
+  # Frontend Lint & Validation (Python)
+  # ============================================
+  frontend:
+    name: 🎨 Frontend Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: frontend/requirements.txt
+      
+      - name: Install dependencies
+        run: |
+          cd frontend
+          pip install -r requirements.txt
+          pip install flake8
+      
+      - name: Lint with flake8
+        run: |
+          cd frontend
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+  # ============================================
+  # Docker Build (Multi-container)
+  # ============================================
+  docker:
+    name: 🐳 Docker Build
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Backend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: smartfridge-backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Build Frontend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: false
+          tags: smartfridge-frontend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================
+  # Integration Test (Docker Compose)
+  # ============================================
+  integration:
+    name: 🧪 Integration Test
+    runs-on: ubuntu-latest
+    needs: docker
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Start services
+        run: |
+          docker-compose up -d --build
+          sleep 30  # Wait for services to be ready
+      
+      - name: Health check - Backend
+        run: |
+          curl --fail http://localhost:8080/api/cuisines || exit 1
+      
+      - name: Health check - Frontend
+        run: |
+          curl --fail http://localhost:8501 || exit 1
+      
+      - name: Health check - Qdrant
+        run: |
+          curl --fail http://localhost:6333/collections || exit 1
+      
+      - name: Stop services
+        if: always()
+        run: docker-compose down -v

@@ -97,7 +97,16 @@ A full-stack smart kitchen assistant that discovers recipes from your fridge ing
 | Backend | Java 17, Spring Boot 3.2 |
 | Database | SQLite (relational), Qdrant (vector) |
 | AI | Ollama (LLM + embeddings) |
+| CI/CD | GitHub Actions, Docker |
 
+### 🔄 CI/CD Pipeline
+
+Automated builds on every push:
+- ✅ **Backend**: Maven build, test, package
+- ✅ **Frontend**: Python lint with flake8
+- ✅ **Docker**: Multi-stage image builds
+- ✅ **Integration**: Full docker-compose health checks
+- 📦 **Release**: Auto-publish to Docker Hub on tag
 
 ---
 
