@@ -126,7 +126,8 @@ public class RecipeController {
      * Hybrid search combining exact ingredient matching and semantic search
      * 
      * POST /api/recipes/hybrid-search
-     * Request body: { "ingredients": [...], "query": "...", "limit": 10 }
+     * Request body: { "ingredients": [...], "query": "...", "limit": 10,
+     * "scoreThreshold": 0.3 }
      */
     @PostMapping("/recipes/hybrid-search")
     public ResponseEntity<?> hybridSearch(@RequestBody Map<String, Object> request) {
@@ -134,6 +135,13 @@ public class RecipeController {
         List<String> ingredients = (List<String>) request.get("ingredients");
         String query = (String) request.get("query");
         Integer limit = (Integer) request.getOrDefault("limit", 10);
+
+        // Parse score threshold - can be Double or Integer from JSON
+        float scoreThreshold = 0.0f;
+        Object thresholdObj = request.get("scoreThreshold");
+        if (thresholdObj instanceof Number) {
+            scoreThreshold = ((Number) thresholdObj).floatValue();
+        }
 
         if ((ingredients == null || ingredients.isEmpty()) && (query == null || query.trim().isEmpty())) {
             return ResponseEntity.badRequest().body(Map.of("error", "Either ingredients or query is required"));
@@ -149,7 +157,8 @@ public class RecipeController {
                     "warning", "Semantic search unavailable, showing exact matches only"));
         }
 
-        List<VectorSearchService.SearchResult> results = vectorSearchService.hybridSearch(ingredients, query, limit);
+        List<VectorSearchService.SearchResult> results = vectorSearchService.hybridSearch(ingredients, query, limit,
+                scoreThreshold);
         return ResponseEntity.ok(Map.of("results", results));
     }
 

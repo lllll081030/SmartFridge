@@ -233,23 +233,41 @@ def _render_hybrid_search_tab():
             placeholder="e.g., 'something quick and healthy'"
         )
         
-        limit = st.number_input("Max results", min_value=1, max_value=20, value=5, key="hybrid_limit")
+        # Search parameters in a row
+        param_col1, param_col2 = st.columns(2)
+        with param_col1:
+            limit = st.number_input("Max results", min_value=1, max_value=20, value=5, key="hybrid_limit")
+        with param_col2:
+            threshold = st.slider(
+                "Min match %", 
+                min_value=0, 
+                max_value=100, 
+                value=0,
+                step=5,
+                key="hybrid_threshold",
+                help="Filter out recipes with match score below this threshold"
+            )
     
     if st.button("🔗 Hybrid Search", key="hybrid_search_btn", type="primary", use_container_width=True):
         ingredients = [i.strip() for i in ingredients_input.split('\n') if i.strip()]
         
         if ingredients or query:
             with st.spinner("Searching..."):
-                results, warning = hybrid_search_recipes(ingredients, query, limit)
+                # Convert percentage to 0-1 scale
+                score_threshold = threshold / 100.0
+                results, warning = hybrid_search_recipes(ingredients, query, limit, score_threshold)
                 
                 if warning:
                     st.warning(warning)
                 
                 if results:
-                    st.success(f"Found {len(results)} matching recipes")
+                    st.success(f"Found {len(results)} matching recipes (min {threshold}% match)")
                     _display_search_results(results)
                 else:
-                    st.info("No matching recipes found. Try different ingredients or query.")
+                    if threshold > 0:
+                        st.info(f"No recipes found with ≥{threshold}% match. Try lowering the threshold.")
+                    else:
+                        st.info("No matching recipes found. Try different ingredients or query.")
         else:
             st.warning("Please enter ingredients or a search query")
 
@@ -288,8 +306,17 @@ def _display_search_results(results):
         # Format score as percentage
         score_pct = f"{score * 100:.0f}%" if score else "N/A"
         
-        # Match type emoji
-        match_emoji = "🎯" if match_type == "exact" else "🧠" if match_type == "semantic" else "🔗"
+        # Match type emoji - V2.3 adds hybrid_rrf for true hybrid search
+        if match_type == "exact":
+            match_emoji = "🎯"
+        elif match_type == "hybrid_rrf":
+            match_emoji = "⚡"  # Lightning for hybrid RRF fusion
+        elif match_type == "semantic":
+            match_emoji = "🧠"
+        elif match_type == "ingredient":
+            match_emoji = "🥗"
+        else:
+            match_emoji = "🔗"
         
         with st.expander(f"{match_emoji} **{recipe_name}** — {score_pct} match"):
             details = fetch_recipe_details(recipe_name)

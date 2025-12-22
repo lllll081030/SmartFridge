@@ -79,25 +79,39 @@ def _render_hybrid_search():
         placeholder="e.g., 'something quick and healthy'"
     )
     
-    col1, col2 = st.columns([1, 4])
+    col1, col2 = st.columns(2)
     with col1:
-        limit = st.number_input("Results", min_value=1, max_value=20, value=10, key="hybrid_limit")
+        limit = st.number_input("Max results", min_value=1, max_value=20, value=10, key="hybrid_limit")
+    with col2:
+        threshold = st.slider(
+            "Min match %",
+            min_value=0,
+            max_value=100,
+            value=0,
+            step=5,
+            key="hybrid_threshold",
+            help="Filter out recipes with match score below this threshold"
+        )
     
     if st.button("🔍 Hybrid Search", key="hybrid_search_btn", type="primary"):
         ingredients = [i.strip() for i in ingredients_input.split('\n') if i.strip()]
         
         if ingredients or query:
             with st.spinner("Searching..."):
-                results, warning = hybrid_search_recipes(ingredients, query, limit)
+                score_threshold = threshold / 100.0
+                results, warning = hybrid_search_recipes(ingredients, query, limit, score_threshold)
                 
                 if warning:
                     st.warning(warning)
                 
                 if results:
-                    st.success(f"Found {len(results)} matching recipes")
+                    st.success(f"Found {len(results)} matching recipes (min {threshold}% match)")
                     _display_search_results(results)
                 else:
-                    st.info("No recipes found matching your criteria.")
+                    if threshold > 0:
+                        st.info(f"No recipes found with ≥{threshold}% match. Try lowering the threshold.")
+                    else:
+                        st.info("No recipes found matching your criteria.")
         else:
             st.warning("Please enter ingredients or a search query")
 
@@ -113,8 +127,17 @@ def _display_search_results(results):
         # Format score as percentage
         score_pct = f"{score * 100:.1f}%" if score else "N/A"
         
-        # Match type badge
-        match_badge = "🎯" if match_type == "exact" else "🧠"
+        # Match type badge - V2.3 adds hybrid_rrf for true hybrid search
+        if match_type == "exact":
+            match_badge = "🎯"
+        elif match_type == "hybrid_rrf":
+            match_badge = "⚡"  # Lightning for hybrid RRF fusion
+        elif match_type == "semantic":
+            match_badge = "🧠"
+        elif match_type == "ingredient":
+            match_badge = "🥗"
+        else:
+            match_badge = "🔗"
         
         with st.expander(f"{match_badge} **{recipe_name}** - {score_pct} match ({cuisine})"):
             # Fetch and display recipe details

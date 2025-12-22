@@ -182,10 +182,17 @@ def search_recipes_semantic(query, limit=10):
     return [], "Could not connect to backend"
 
 
-def hybrid_search_recipes(ingredients=None, query=None, limit=10):
-    """Search recipes using hybrid (exact + semantic) matching"""
+def hybrid_search_recipes(ingredients=None, query=None, limit=10, score_threshold=0.0):
+    """Search recipes using hybrid (exact + semantic) matching
+    
+    Args:
+        ingredients: List of ingredients to search
+        query: Natural language query
+        limit: Maximum results to return
+        score_threshold: Minimum score (0.0-1.0) to filter results
+    """
     try:
-        data = {"limit": limit}
+        data = {"limit": limit, "scoreThreshold": score_threshold}
         if ingredients:
             data["ingredients"] = ingredients
         if query:
