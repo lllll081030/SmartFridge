@@ -1,10 +1,11 @@
 """AI Recipe Parser page module"""
+import os
 import streamlit as st
 import requests
 from api import add_recipe
 
-# AI service URL
-AI_SERVICE_URL = "http://localhost:5001"
+# AI service URL - use environment variable in Docker, fallback to localhost
+AI_SERVICE_URL = os.environ.get("AI_SERVICE_URL", "http://localhost:5001")
 
 
 def render():

@@ -42,6 +42,9 @@ public class VectorSearchService {
     @Autowired
     private RecipeDao recipeDao;
 
+    @Autowired
+    private VectorCacheService vectorCacheService;
+
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
     private boolean initialized = false;
@@ -400,6 +403,17 @@ public class VectorSearchService {
             return results;
         }
 
+        // Cache-Aside Pattern: Check cache first
+        if (vectorCacheService.isAvailable()) {
+            String cacheKey = vectorCacheService.buildSearchCacheKey(ingredients, query) + "|t:" + topK + "|s:"
+                    + scoreThreshold;
+            List<SearchResult> cached = vectorCacheService.getCachedSearchResults(cacheKey);
+            if (cached != null) {
+                System.out.println("[HybridSearch] Returning cached results");
+                return cached;
+            }
+        }
+
         try {
             // Use Qdrant's query API with prefetch for hybrid search
             String url = getBaseUrl() + "/collections/" + COLLECTION_NAME + "/points/query";
@@ -513,6 +527,13 @@ public class VectorSearchService {
             // Fallback to legacy hybrid search if new API fails
             System.out.println("[HybridSearch] Falling back to legacy search");
             return legacyHybridSearch(ingredients, query, topK, scoreThreshold);
+        }
+
+        // Cache the results before returning
+        if (vectorCacheService.isAvailable() && !results.isEmpty()) {
+            String cacheKey = vectorCacheService.buildSearchCacheKey(ingredients, query) + "|t:" + topK + "|s:"
+                    + scoreThreshold;
+            vectorCacheService.cacheSearchResults(cacheKey, results);
         }
 
         return results;

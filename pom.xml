@@ -51,6 +51,12 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Spring Data Redis -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
         <!-- Qdrant Vector Database Client -->
         <!-- Using REST API via RestTemplate instead of gRPC client -->
         <!-- This avoids complex protobuf dependency issues -->

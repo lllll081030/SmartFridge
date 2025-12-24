@@ -8,6 +8,14 @@ services:
       - ./data:/app/data
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATA_REDIS_HOST=redis
+      - QDRANT_HOST=qdrant
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - AI_SERVICE_URL=http://ai-service:5001
+    depends_on:
+      - redis
+      - qdrant
+      - ai-service
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/api/cuisines" ]
       interval: 30s
@@ -22,8 +30,27 @@ services:
       - "8501:8501"
     environment:
       - SMARTFRIDGE_API_URL=http://backend:8080/api
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - AI_SERVICE_URL=http://ai-service:5001
     depends_on:
       - backend
+      - ai-service
+
+  ai-service:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.ai
+    container_name: smartfridge-ai
+    ports:
+      - "5001:5001"
+    environment:
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:5001/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   qdrant:
     image: qdrant/qdrant:latest
@@ -41,5 +68,21 @@ services:
       timeout: 10s
       retries: 3
 
+  redis:
+    image: redis:7-alpine
+    container_name: smartfridge-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 volumes:
   qdrant_data:
+  redis_data:
+
+

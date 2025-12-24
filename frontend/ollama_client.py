@@ -1,6 +1,7 @@
 """
 Ollama Client - Interface for local LLM
 """
+import os
 import requests
 import json
 import re
@@ -10,8 +11,9 @@ from typing import Dict, List, Optional
 class OllamaClient:
     """Client for interacting with local Ollama LLM"""
     
-    def __init__(self, base_url: str = "http://localhost:11434"):
-        self.base_url = base_url
+    def __init__(self, base_url: str = None):
+        # Use environment variable if set, otherwise default to localhost
+        self.base_url = base_url or os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
         self.model = "llama3.2:1b"  # Smaller, faster model (was llama3.2)
     
     def is_available(self) -> bool:
