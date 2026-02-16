@@ -83,7 +83,7 @@ Instructions:
                 import time
                 start_time = time.time()
                 
-                # Call Flask AI service instead of Ollama directly
+                # Call Flask AI service (OpenAI-powered)
                 parsed = parse_recipe_via_ai_service(recipe_text)
                 
                 elapsed = time.time() - start_time

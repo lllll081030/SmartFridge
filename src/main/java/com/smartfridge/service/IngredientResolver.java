@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 
 /**
  * Service for resolving ingredient names to their canonical forms.
- * Supports AI-powered alias generation using Ollama.
+ * Supports AI-powered alias generation using OpenAI API.
  */
 @Service
 public class IngredientResolver {
@@ -23,8 +23,14 @@ public class IngredientResolver {
     @Autowired
     private IngredientAliasDao aliasDao;
 
-    @Value("${ollama.base-url:http://localhost:11434}")
-    private String ollamaBaseUrl;
+    @Value("${openai.api-key}")
+    private String openaiApiKey;
+
+    @Value("${openai.base-url:https://api.openai.com/v1}")
+    private String openaiBaseUrl;
+
+    @Value("${openai.chat-model:gpt-4o-mini}")
+    private String chatModel;
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -79,7 +85,7 @@ public class IngredientResolver {
     }
 
     /**
-     * Generate aliases for an ingredient using Ollama LLM.
+     * Generate aliases for an ingredient using OpenAI API.
      * Returns the generated aliases.
      */
     public List<String> generateAliasesWithAI(String ingredient) {
@@ -104,28 +110,45 @@ public class IngredientResolver {
                 ingredient, ingredient);
 
         try {
+            // Build OpenAI Chat Completions request
             Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("model", "llama3.2:1b");
-            requestBody.put("prompt", prompt);
-            requestBody.put("stream", false);
-            requestBody.put("format", "json");
+            requestBody.put("model", chatModel);
+            List<Map<String, String>> messages = new ArrayList<>();
+            messages.add(Map.of("role", "user", "content", prompt));
+            requestBody.put("messages", messages);
+            requestBody.put("response_format", Map.of("type", "json_object"));
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(openaiApiKey);
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
             ResponseEntity<String> response = restTemplate.exchange(
-                    ollamaBaseUrl + "/api/generate",
+                    openaiBaseUrl + "/chat/completions",
                     HttpMethod.POST,
                     entity,
                     String.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 JsonNode root = objectMapper.readTree(response.getBody());
-                String responseText = root.path("response").asText();
+                String responseText = root.path("choices").get(0).path("message").path("content").asText();
 
                 // Parse the JSON array from response
-                JsonNode aliasArray = objectMapper.readTree(responseText);
+                JsonNode parsed = objectMapper.readTree(responseText);
+                // Handle both plain array and object with array field
+                JsonNode aliasArray = parsed.isArray() ? parsed : parsed.path("aliases");
+                if (!aliasArray.isArray()) {
+                    // Try first array field in the object
+                    var fields = parsed.fields();
+                    while (fields.hasNext()) {
+                        JsonNode val = fields.next().getValue();
+                        if (val.isArray()) {
+                            aliasArray = val;
+                            break;
+                        }
+                    }
+                }
+
                 if (aliasArray.isArray()) {
                     for (JsonNode alias : aliasArray) {
                         String aliasText = alias.asText().trim().toLowerCase();
@@ -155,12 +178,18 @@ public class IngredientResolver {
     }
 
     /**
-     * Check if Ollama is available for AI alias generation.
+     * Check if OpenAI API is available for AI alias generation.
      */
-    public boolean isOllamaAvailable() {
+    public boolean isAIAvailable() {
         try {
-            ResponseEntity<String> response = restTemplate.getForEntity(
-                    ollamaBaseUrl + "/api/tags",
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(openaiApiKey);
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                    openaiBaseUrl + "/models",
+                    HttpMethod.GET,
+                    entity,
                     String.class);
             return response.getStatusCode().is2xxSuccessful();
         } catch (Exception e) {

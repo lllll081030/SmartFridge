@@ -1,14 +1,14 @@
 """
-Test script for Ollama integration
+Test script for OpenAI integration
 """
-from ollama_client import ollama
+from openai_client import openai_client
 
-print("Testing Ollama connection...")
-print(f"Ollama available: {ollama.is_available()}")
+print("Testing OpenAI connection...")
+print(f"OpenAI available: {openai_client.is_available()}")
 
-if ollama.is_available():
+if openai_client.is_available():
     print("\nTesting simple generation...")
-    response = ollama.generate("What is 2+2? Answer with just the number.")
+    response = openai_client.generate("What is 2+2? Answer with just the number.")
     print(f"Response: {response}")
     
     print("\nTesting recipe parsing...")
@@ -29,7 +29,7 @@ if ollama.is_available():
     5. Season with salt and pepper
     """
     
-    parsed = ollama.parse_recipe(sample_recipe)
+    parsed = openai_client.parse_recipe(sample_recipe)
     
     if parsed:
         print("✅ Recipe parsing successful!")
@@ -40,4 +40,4 @@ if ollama.is_available():
     else:
         print("❌ Recipe parsing failed")
 else:
-    print("❌ Ollama is not available. Please start Ollama.")
+    print("❌ OpenAI is not available. Please check your OPENAI_API_KEY in .env")

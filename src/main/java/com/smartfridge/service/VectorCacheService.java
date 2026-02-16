@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit;
  * 
  * Flow:
  * 1. User search -> Check Redis for cached results
- * 2. Cache miss -> Call Ollama + Qdrant -> Store in Redis -> Return to user
+ * 2. Cache miss -> Call OpenAI + Qdrant -> Store in Redis -> Return to user
  * 3. Cache hit -> Return cached results directly
  */
 @Service

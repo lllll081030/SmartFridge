@@ -33,7 +33,7 @@ def render():
         if stats.get('initialized'):
             st.caption(f"📊 {stats.get('pointsCount', 0)} recipes indexed | Search: ✅ Ready")
         else:
-            st.caption("⚠️ Search not ready - click Sync or start Qdrant/Ollama")
+            st.caption("⚠️ Search not ready - click Sync or check Qdrant/OpenAI")
     
     st.divider()
     

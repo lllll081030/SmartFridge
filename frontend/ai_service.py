@@ -1,10 +1,11 @@
 """
 AI Service for Ingredient Substitutions
 Flask microservice that provides AI-powered ingredient substitution suggestions
+Powered by OpenAI API
 """
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from ollama_client import ollama
+from openai_client import openai_client
 import json
 
 app = Flask(__name__)
@@ -58,16 +59,16 @@ def get_substitutions():
             print("[ERROR] Missing ingredient parameter")
             return jsonify({"error": "Missing ingredient parameter"}), 400
         
-        # Check if Ollama is available
-        print("[DEBUG] Checking if Ollama is available...")
-        if not ollama.is_available():
-            print("[ERROR] AI service (Ollama) is not available")
+        # Check if OpenAI is available
+        print("[DEBUG] Checking if OpenAI is available...")
+        if not openai_client.is_available():
+            print("[ERROR] AI service (OpenAI) is not available")
             return jsonify({
-                "error": "AI service (Ollama) is not available",
+                "error": "AI service (OpenAI) is not available",
                 "substitutes": []
             }), 503
         
-        print("[DEBUG] Ollama is available, generating substitutions...")
+        print("[DEBUG] OpenAI is available, generating substitutions...")
         
         # Generate substitution suggestions using AI
         substitutes = generate_substitution_suggestions(
@@ -94,7 +95,7 @@ def get_substitutions():
 
 def generate_substitution_suggestions(ingredient, cuisine, recipe_ingredients, fridge_supplies):
     """
-    Use Ollama to generate ingredient substitution suggestions
+    Use OpenAI to generate ingredient substitution suggestions
     """
     # Build context-aware prompt - STRICT: ONLY suggest items from fridge
     fridge_list = ', '.join(fridge_supplies[:20]) if fridge_supplies else 'EMPTY FRIDGE'
@@ -133,16 +134,16 @@ RULES:
 
 Return ONLY valid JSON, no markdown."""
 
-    print(f"[DEBUG] Requesting substitutions for '{ingredient}' from Ollama...")
+    print(f"[DEBUG] Requesting substitutions for '{ingredient}' from OpenAI...")
     print(f"[DEBUG] Fridge has {len(fridge_supplies)} items: {fridge_supplies}")
     
     try:
-        response = ollama.generate(prompt, format_json=True)
+        response = openai_client.generate(prompt, format_json=True)
         
-        print(f"[DEBUG] Ollama raw response: {response}")
+        print(f"[DEBUG] OpenAI raw response: {response}")
         
         if not response:
-            print(f"[ERROR] Ollama returned empty response")
+            print(f"[ERROR] OpenAI returned empty response")
             return []
         
         # Parse JSON response
@@ -212,7 +213,7 @@ Return ONLY valid JSON, no markdown."""
             return []
             
     except Exception as e:
-        print(f"[ERROR] Ollama request failed: {e}")
+        print(f"[ERROR] OpenAI request failed: {e}")
         import traceback
         traceback.print_exc()
         return []
@@ -221,11 +222,11 @@ Return ONLY valid JSON, no markdown."""
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
-    ollama_available = ollama.is_available()
+    ai_available = openai_client.is_available()
     return jsonify({
         "status": "healthy",
-        "ollama_available": ollama_available,
-        "model": ollama.model
+        "ai_available": ai_available,
+        "model": openai_client.chat_model
     })
 
 
@@ -267,19 +268,19 @@ def parse_recipe():
                 "error": "Recipe text is required"
             }), 400
         
-        # Check if Ollama is available
-        print("[DEBUG] Checking if Ollama is available...")
-        if not ollama.is_available():
-            print("[ERROR] Ollama is not available")
+        # Check if OpenAI is available
+        print("[DEBUG] Checking if OpenAI is available...")
+        if not openai_client.is_available():
+            print("[ERROR] OpenAI is not available")
             return jsonify({
                 "success": False,
-                "error": "AI service (Ollama) is not available"
+                "error": "AI service (OpenAI) is not available"
             }), 503
         
-        print("[DEBUG] Ollama is available, parsing recipe...")
+        print("[DEBUG] OpenAI is available, parsing recipe...")
         
-        # Parse recipe using Ollama
-        parsed_recipe = ollama.parse_recipe(recipe_text)
+        # Parse recipe using OpenAI
+        parsed_recipe = openai_client.parse_recipe(recipe_text)
         
         if parsed_recipe:
             print(f"[SUCCESS] Successfully parsed recipe: {parsed_recipe.get('name', 'Unknown')}")
@@ -308,9 +309,10 @@ def parse_recipe():
 if __name__ == '__main__':
     print("=" * 60)
     print("Starting AI Substitution Service on http://localhost:5001")
+    print("Powered by OpenAI API")
     print("=" * 60)
-    print(f"Ollama available: {ollama.is_available()}")
-    print(f"Using model: {ollama.model}")
+    print(f"OpenAI available: {openai_client.is_available()}")
+    print(f"Using model: {openai_client.chat_model}")
     print()
     print("Available endpoints:")
     print("  POST /ai/substitutions - Get ingredient substitutions")

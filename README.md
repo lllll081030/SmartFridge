@@ -2,7 +2,7 @@
 
 > **"What can I cook tonight?"** — Let AI figure it out.
 
-A full-stack smart kitchen assistant that discovers recipes from your fridge ingredients. Powered by **semantic search**, **AI substitutions**, **hybrid retrieval**, and **Redis caching**.
+A full-stack smart kitchen assistant that discovers recipes from your fridge ingredients. Powered by **semantic search**, **AI substitutions**, **hybrid retrieval**, and **Redis caching** — using **OpenAI API** for embeddings and text generation.
 
 ### ✨ Key Features
 - 🔍 **Hybrid Search** — Find recipes by ingredients + natural language ("something quick with chicken")
@@ -69,7 +69,7 @@ A full-stack smart kitchen assistant that discovers recipes from your fridge ing
 - 📊 **Vector Database** - Qdrant stores recipe embeddings for similarity search
 
 **Technical:**
-- Ollama `nomic-embed-text` for 768-dim embeddings
+- OpenAI `text-embedding-3-small` for 1536-dim embeddings
 - Qdrant vector database integration
 
 ---
@@ -85,7 +85,7 @@ A full-stack smart kitchen assistant that discovers recipes from your fridge ing
 - 📊 **Improved UI** - Better recipe display with separate ingredient/seasoning sections
 
 **Technical Improvements:**
-- Ollama integration for local LLM (llama3.2:1b)
+- OpenAI API integration for LLM-powered recipe parsing (gpt-4o-mini)
 - Database schema: `is_seasoning` column for proper separation
 
 ---
@@ -113,7 +113,7 @@ A full-stack smart kitchen assistant that discovers recipes from your fridge ing
 | Backend | Java 17, Spring Boot 3.2 |
 | Database | SQLite (relational), Qdrant (vector) |
 | Cache | Redis 7 (vector & search caching) |
-| AI | Ollama (LLM + embeddings) |
+| AI | OpenAI API (LLM + embeddings) |
 | CI/CD | GitHub Actions, Docker |
 
 ### 🔄 CI/CD Pipeline
@@ -134,21 +134,17 @@ Automated builds on every push:
 - Maven
 - Python 3.11+
 - Docker Desktop
-- Ollama ([install](https://ollama.ai))
+- OpenAI API key (set in `.env`)
 
 ### Option 1: Run with Docker Compose (Recommended)
 
 This starts all services (backend, frontend, AI service, Qdrant, Redis) in containers:
 
 ```bash
-# 1. Start Ollama on your host (required - runs outside Docker)
-ollama serve
+# 1. Set your OpenAI API key
+echo OPENAI_API_KEY=sk-your-key-here > .env
 
-# 2. Pull required models (first time only)
-ollama pull llama3.2:1b        # For recipe parsing & substitutions
-ollama pull nomic-embed-text   # For semantic embeddings
-
-# 3. Start all containers
+# 2. Start all containers
 docker-compose up --build
 ```
 
@@ -165,8 +161,8 @@ docker-compose up --build
         └──────────────┼─────────────┘
                        ▼
                ┌─────────────┐
-               │Ollama (Host)│  ← Runs on your machine
-               │   :11434    │
+               │ OpenAI API  │
+               │api.openai.com│
                └─────────────┘
 ```
 
@@ -187,10 +183,8 @@ docker run -d -p 6379:6379 \
   --name smartfridge-redis \
   redis:7-alpine
 
-# Ollama (AI Models)
-ollama serve
-ollama pull llama3.2:1b        # For recipe parsing & substitutions
-ollama pull nomic-embed-text   # For semantic embeddings
+# Set OpenAI API key
+echo OPENAI_API_KEY=sk-your-key-here > .env
 ```
 
 **2. Start Application Services** (3 terminals)
@@ -228,7 +222,6 @@ streamlit run app.py
 | AI Service | http://localhost:5001 | Flask (substitutions, parsing) |
 | Qdrant | http://localhost:6333 | Vector database dashboard |
 | Redis | localhost:6379 | Vector & search result cache |
-| Ollama | http://localhost:11434 | LLM & embeddings (host only) |
 
 ---
 
@@ -286,7 +279,7 @@ SmartFridge/
 │   │   ├── RecipeService.java       # Core recipe logic
 │   │   ├── VectorSearchService.java # Qdrant hybrid search
 │   │   ├── VectorCacheService.java  # Redis caching (v2.4)
-│   │   ├── EmbeddingService.java    # Dense embeddings (Ollama)
+│   │   ├── EmbeddingService.java    # Dense embeddings (OpenAI)
 │   │   ├── SparseEmbeddingService.java # BM25 sparse vectors
 │   │   ├── IngredientResolver.java  # Alias resolution
 │   │   └── IngredientSubstitutionService.java
@@ -304,7 +297,7 @@ SmartFridge/
 │   ├── config.py                    # Frontend config
 │   ├── styles.py                    # UI styling
 │   ├── ai_service.py                # Flask AI service (port 5001)
-│   ├── ollama_client.py             # Ollama integration
+│   ├── openai_client.py             # OpenAI API integration
 │   ├── Dockerfile                   # Streamlit container
 │   ├── Dockerfile.ai                # Flask AI service container
 │   ├── requirements.txt             # Python dependencies
@@ -329,7 +322,7 @@ SmartFridge/
 
 | Variable | Service | Default | Description |
 |----------|---------|---------|-------------|
-| `OLLAMA_BASE_URL` | backend, frontend, ai-service | `http://localhost:11434` | Ollama API URL |
+| `OPENAI_API_KEY` | backend, frontend, ai-service | (required) | OpenAI API key |
 | `AI_SERVICE_URL` | backend, frontend | `http://localhost:5001` | Flask AI service URL |
 | `SPRING_DATA_REDIS_HOST` | backend | `localhost` | Redis hostname |
 | `QDRANT_HOST` | backend | `localhost` | Qdrant hostname |
@@ -346,9 +339,11 @@ spring.data.redis.timeout=2000ms
 # Vector Cache TTL (seconds)
 vector.cache.ttl=3600
 
-# Ollama Configuration
-ollama.base-url=${OLLAMA_BASE_URL:http://localhost:11434}
-ollama.embedding-model=nomic-embed-text
+# OpenAI Configuration
+openai.api-key=${OPENAI_API_KEY}
+openai.base-url=${OPENAI_BASE_URL:https://api.openai.com/v1}
+openai.embedding-model=text-embedding-3-small
+openai.chat-model=gpt-4o-mini
 
 # Qdrant Configuration
 qdrant.host=localhost

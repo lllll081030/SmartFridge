@@ -10,7 +10,7 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - SPRING_DATA_REDIS_HOST=redis
       - QDRANT_HOST=qdrant
-      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
       - AI_SERVICE_URL=http://ai-service:5001
     depends_on:
       - redis
@@ -30,7 +30,7 @@ services:
       - "8501:8501"
     environment:
       - SMARTFRIDGE_API_URL=http://backend:8080/api
-      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
       - AI_SERVICE_URL=http://ai-service:5001
     depends_on:
       - backend
@@ -44,7 +44,7 @@ services:
     ports:
       - "5001:5001"
     environment:
-      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:5001/health" ]
       interval: 30s

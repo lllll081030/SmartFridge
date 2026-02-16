@@ -115,7 +115,7 @@ public class RecipeController {
         if (!vectorSearchService.isAvailable()) {
             return ResponseEntity.ok(Map.of(
                     "results", List.of(),
-                    "warning", "Semantic search is not available. Make sure Qdrant and Ollama are running."));
+                    "warning", "Semantic search is not available. Make sure Qdrant is running and OpenAI API key is configured."));
         }
 
         List<VectorSearchService.SearchResult> results = vectorSearchService.searchSimilar(query.trim(), limit);
@@ -497,7 +497,7 @@ public class RecipeController {
     public ResponseEntity<?> indexAllRecipes() {
         if (!vectorSearchService.isAvailable()) {
             return ResponseEntity.ok(Map.of(
-                    "error", "Vector search is not available. Make sure Qdrant and Ollama are running."));
+                    "error", "Vector search is not available. Make sure Qdrant is running and OpenAI API key is configured."));
         }
 
         int count = vectorSearchService.indexAllRecipes();

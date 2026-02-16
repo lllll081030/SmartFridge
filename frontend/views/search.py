@@ -169,7 +169,7 @@ def _render_admin_panel():
         st.metric("Vector Search", status)
     with col2:
         embedding_status = "✅ Available" if stats.get('embeddingAvailable', False) else "❌ Unavailable"
-        st.metric("Embeddings (Ollama)", embedding_status)
+        st.metric("Embeddings (OpenAI)", embedding_status)
     with col3:
         points = stats.get('pointsCount', 0)
         st.metric("Indexed Recipes", points)
@@ -230,4 +230,4 @@ def _render_admin_panel():
                     if generated:
                         st.success(f"Generated {len(generated)} aliases: {', '.join(generated)}")
                     else:
-                        st.warning("Could not generate aliases. Is Ollama running?")
+                        st.warning("Could not generate aliases. Is OpenAI API key configured?")

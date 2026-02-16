@@ -11,16 +11,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.*;
 
 /**
- * Service for generating text embeddings using Ollama.
+ * Service for generating text embeddings using OpenAI API.
  * Used for semantic search of recipes.
  */
 @Service
 public class EmbeddingService {
 
-    @Value("${ollama.base-url:http://localhost:11434}")
-    private String ollamaBaseUrl;
+    @Value("${openai.api-key}")
+    private String openaiApiKey;
 
-    @Value("${ollama.embedding-model:nomic-embed-text}")
+    @Value("${openai.base-url:https://api.openai.com/v1}")
+    private String openaiBaseUrl;
+
+    @Value("${openai.embedding-model:text-embedding-3-small}")
     private String embeddingModel;
 
     private final RestTemplate restTemplate = new RestTemplate();
@@ -38,21 +41,22 @@ public class EmbeddingService {
         try {
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("model", embeddingModel);
-            requestBody.put("prompt", text);
+            requestBody.put("input", text);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(openaiApiKey);
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
             ResponseEntity<String> response = restTemplate.exchange(
-                    ollamaBaseUrl + "/api/embeddings",
+                    openaiBaseUrl + "/embeddings",
                     HttpMethod.POST,
                     entity,
                     String.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 JsonNode root = objectMapper.readTree(response.getBody());
-                JsonNode embeddingNode = root.path("embedding");
+                JsonNode embeddingNode = root.path("data").get(0).path("embedding");
 
                 if (embeddingNode.isArray()) {
                     float[] embedding = new float[embeddingNode.size()];
@@ -118,9 +122,8 @@ public class EmbeddingService {
      * Useful for initializing vector database collections.
      */
     public int getEmbeddingDimension() {
-        // nomic-embed-text produces 768-dimensional embeddings
-        // This could be made dynamic by querying the model
-        return 768;
+        // text-embedding-3-small produces 1536-dimensional embeddings
+        return 1536;
     }
 
     /**
@@ -131,12 +134,18 @@ public class EmbeddingService {
     }
 
     /**
-     * Check if Ollama is available for embedding generation.
+     * Check if OpenAI API is available for embedding generation.
      */
     public boolean isAvailable() {
         try {
-            ResponseEntity<String> response = restTemplate.getForEntity(
-                    ollamaBaseUrl + "/api/tags",
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(openaiApiKey);
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                    openaiBaseUrl + "/models",
+                    HttpMethod.GET,
+                    entity,
                     String.class);
             return response.getStatusCode().is2xxSuccessful();
         } catch (Exception e) {

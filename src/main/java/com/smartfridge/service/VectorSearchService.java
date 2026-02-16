@@ -23,9 +23,9 @@ import java.util.*;
 @Service
 public class VectorSearchService {
 
-    // V2: Multi-vector collection with dense (semantic) + sparse (BM25) vectors
-    private static final String COLLECTION_NAME = "recipes_v2";
-    private static final int VECTOR_SIZE = 768; // nomic-embed-text dimension
+    // V3: Multi-vector collection with OpenAI dense (semantic) + sparse (BM25) vectors
+    private static final String COLLECTION_NAME = "recipes_v3";
+    private static final int VECTOR_SIZE = 1536; // text-embedding-3-small dimension
 
     @Value("${qdrant.host:localhost}")
     private String qdrantHost;
